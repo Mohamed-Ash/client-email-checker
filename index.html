@@ -197,8 +197,11 @@ body.dragging{outline:3px dashed var(--accent); outline-offset:-6px}
             </label>
             <div class="btnbar">
               <button type="button" class="btn sm primary" id="btn-dir-save">حفظ الدليل</button>
+              <button type="button" class="btn sm" id="btn-dir-load">تحميل من ملف config.local.js</button>
               <button type="button" class="btn sm" id="btn-dir-reset">استرجاع الافتراضي</button>
+              <input type="file" id="dir-file" accept=".js,.txt,.csv" hidden>
             </div>
+            <span class="hint">على الرابط العام مفيش إيميلات الموظفين (عن قصد). حمّلها مرة واحدة من ملف <span dir="ltr">config.local.js</span> اللي عندك، وهتتحفظ على متصفحك.</span>
           </div>
         </details>
 
@@ -245,12 +248,12 @@ body.dragging{outline:3px dashed var(--accent); outline-offset:-6px}
               </label>
               <label class="f" for="n-type">نوع العميل
                 <select id="n-type">
-                  <option>عميل خدمي VIP</option>
                   <option>عميل خدمي</option>
-                  <option>عميل تجاري VIP</option>
+                  <option>عميل خدمي VIP</option>
                   <option>عميل تجاري</option>
-                  <option>عميل تأسيس VIP</option>
+                  <option>عميل تجاري VIP</option>
                   <option>عميل تأسيس</option>
+                  <option>عميل تأسيس VIP</option>
                 </select>
               </label>
               <label class="f" for="n-owner">تبع
@@ -698,19 +701,20 @@ function numbered(arr, fallbackText){
 }
 function buildNew(){
   var paidEgp = num($("n-egp").value), paidSar = num($("n-sar").value), total = num($("n-total").value);
+  /* الترتيب والصياغة دول مطابقين لقالب الشركة بالحرف.
+     اسم العميل مش سطر في المتن — هو في موضوع الإيميل.
+     والمتبقي مش سطر كمان — بيتحسب ويتعرض في لوحة التدقيق للمراجعة. */
   var L = [];
   L.push([$("n-type").value, $("n-owner").value.trim() ? "تبع " + $("n-owner").value.trim() : ""].filter(Boolean).join(" "));
   if($("n-am").value.trim()) L.push("الأكونت مانجر: " + $("n-am").value.trim());
-  if($("n-client").value.trim()) L.push("اسم العميل: " + $("n-client").value.trim());
   L.push("");
   var money = "العميل دفع ";
   if(isFinite(paidEgp)) money += fmt(paidEgp) + " جنيه مصري بما يعادل ";
   money += fmt(paidSar) + " ريال سعودي";
   if(isFinite(total)) money += " من إجمالي " + fmt(total) + " ريال سعودي";
   L.push(money);
-  if(isFinite(total) && isFinite(paidSar)) L.push("المتبقي: " + fmt(total - paidSar) + " ريال سعودي");
   var notes = $("n-notes").value.trim();
-  if(notes){ L.push(""); L.push("ملاحظات العميل:"); L.push(notes); }
+  if(notes){ L.push(""); L.push(notes); }
   L.push("");
   L.push("أسماء الملاك وحصص الملكية:");
   var ow = readList("n-owners");
@@ -958,8 +962,16 @@ function openOutlook(){
           + "?subject=" + encodeURIComponent(m.subject)
           + (m.cc ? "&cc=" + encodeURIComponent(m.cc) : "")
           + "&body=" + encodeURIComponent(m.body.replace(/\n/g, "\r\n"));
+  /* الحرف العربي بياخد 6 خانات في الترميز (%D8%A7)، فقالب العميل
+     الجديد بيتخطى حد الـ mailto دايمًا تقريبًا. بدل ما نقف، بننزّل
+     المسودة على طول — الزرار لازم يوصّلك لأوتلوك في الحالتين. */
   if(url.length > 1900){
-    toast("النص طويل على رابط أوتلوك — استخدم «تنزيل مسودة ‎.eml»");
+    if(IS_LOCAL){
+      downloadEml();
+      toast("النص أطول من حد أوتلوك — نزّلت مسودة ‎.eml، افتحها بدبل كليك");
+    } else {
+      toast("النص طويل — افتح الأداة من الملف المحلي أو رابط GitHub Pages عشان تنزّل مسودة ‎.eml");
+    }
     return;
   }
   var a = document.createElement("a");
@@ -1637,6 +1649,41 @@ $("btn-dir-save").onclick = function(){
   dirCustom = true;
   applyDirectory(); render();
   toast("اتحفظ: " + people.length + " اسم و" + codes.length + " كود");
+};
+$("btn-dir-load").onclick = function(){ $("dir-file").click(); };
+$("dir-file").onchange = function(){
+  var f = this.files && this.files[0];
+  this.value = "";
+  if(!f) return;
+  var rd = new FileReader();
+  rd.onload = function(){
+    var cfg = null;
+    try{
+      /* الملف اللي المستخدم اختاره بنفسه من جهازه — نفس اللي بيتحمّل
+         عادي بوسم script لما الأداة تشتغل محليًا. */
+      var sandbox = { ELLWAA_CONFIG:null, ELLWAA_CODES:null };
+      (new Function("window", String(rd.result)))(sandbox);
+      cfg = sandbox.ELLWAA_CONFIG;
+      if(sandbox.ELLWAA_CODES && sandbox.ELLWAA_CODES.length) codes = sandbox.ELLWAA_CODES;
+    }catch(err){
+      toast("مقدرتش أقرا الملف — اتأكد إنه config.local.js");
+      return;
+    }
+    if(!cfg || !cfg.people || !cfg.people.length){
+      toast("الملف مفيهوش people — اتأكد إنه config.local.js");
+      return;
+    }
+    people = cfg.people;
+    if(cfg.codes && cfg.codes.length) codes = cfg.codes;
+    if(cfg.basePath) $("fld-base").value = cfg.basePath;
+    dirCustom = true;
+    $("dir-people").value = peopleToText(people);
+    $("dir-codes").value = codesToText(codes);
+    applyDirectory(); render();
+    toast("اتحمّل " + people.length + " اسم و" + codes.length + " كود");
+  };
+  rd.onerror = function(){ toast("فشلت قراءة الملف"); };
+  rd.readAsText(f, "utf-8");
 };
 $("btn-dir-reset").onclick = function(){
   people = DEFAULT_PEOPLE.slice(); codes = DEFAULT_CODES.slice();
