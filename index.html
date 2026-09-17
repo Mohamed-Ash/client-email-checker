@@ -334,9 +334,12 @@ body.dragging{outline:3px dashed var(--accent); outline-offset:-6px}
               <button type="button" class="btn sm" data-add="fld-subs">+ إضافة فولدر</button>
               <span class="hint">لفولدر جوه فولدر اكتبه كده: <span dir="ltr">مصر\المستندات</span></span>
             </div>
+            <label class="f" for="fld-dest">وجهة حفظ المرفقات
+              <select id="fld-dest"></select>
+            </label>
             <div class="note" id="fld-preview" dir="ltr" style="text-align:left; font-size:12px"></div>
             <div class="btnbar">
-              <button type="button" class="btn primary sm" id="btn-mkdir">أنشئ الفولدرات</button>
+              <button type="button" class="btn primary sm" id="btn-mkdir">أنشئ الفولدرات واحفظ المرفقات</button>
               <button type="button" class="btn sm" id="btn-ps">نسخ أمر PowerShell</button>
             </div>
             <span class="hint" id="fld-hint"></span>
@@ -399,6 +402,9 @@ body.dragging{outline:3px dashed var(--accent); outline-offset:-6px}
         <div class="panel-bd">
           <div class="note" id="img-empty">الصق الصورة بـ Ctrl+V في أي مكان في الصفحة، أو اسحب الصور وملفات الـ PDF وارميها هنا. المرفقات بتفضل على جهازك وبتتمسح لما تقفل الصفحة — متترفعش لأي مكان.</div>
           <div id="img-stage" hidden><img id="img-big" alt="صورة بيانات العميل"></div>
+          <label class="f" for="img-name" id="img-name-wrap" hidden>اسم الملف عند الحفظ
+            <input id="img-name" spellcheck="false" dir="ltr" style="text-align:left" autocomplete="off">
+          </label>
           <div id="img-thumbs" class="thumbs"></div>
           <span class="hint" id="img-hint"></span>
         </div>
@@ -1043,10 +1049,29 @@ function folderPaths(){
   return p.chains.map(function(ch){ return base + "\\" + ch.join("\\"); });
 }
 function renderFolders(){
-  var p = folderParts(), box = $("fld-preview");
-  if(!p){ box.textContent = "املأ رقم العميل وكود المعاملة الأول."; return; }
+  var p = folderParts(), box = $("fld-preview"), dest = $("fld-dest");
+  if(!p){
+    box.textContent = "املأ رقم العميل وكود المعاملة الأول.";
+    dest.innerHTML = "";
+    return;
+  }
   box.textContent = p.chains.map(function(ch){ return "…\\database\\" + ch.join("\\"); }).join("\n");
   box.style.whiteSpace = "pre-wrap";
+
+  /* الوجهات بتتبني من نفس السلاسل، مع الحفاظ على اللي مختاره المستخدم */
+  var keep = dest.value;
+  dest.innerHTML = "";
+  p.chains.forEach(function(ch, i){
+    var o = document.createElement("option");
+    o.value = String(i);
+    o.textContent = ch.join("\\");
+    dest.appendChild(o);
+  });
+  var rootOpt = document.createElement("option");
+  rootOpt.value = "root";
+  rootOpt.textContent = p.code + " (فولدر العميل نفسه)";
+  dest.appendChild(rootOpt);
+  if(keep && dest.querySelector('option[value="' + keep + '"]')) dest.value = keep;
 }
 async function verifyPerm(h){
   try{
@@ -1075,7 +1100,39 @@ async function ensureChain(root, parts){
     cur = await cur.getDirectoryHandle(parts[i], { create:true });
     if(!existed) made.push(parts[i]);
   }
-  return made;
+  return { made: made, dir: cur };
+}
+/* مبنكتبش فوق ملف موجود — بنزوّد رقم على الاسم. ملفات العملاء
+   مش حاجة تتكتب فوقها بالغلط. */
+async function writeInto(dir, name, file){
+  var dot = name.lastIndexOf(".");
+  var stem = dot > 0 ? name.slice(0, dot) : name;
+  var ext  = dot > 0 ? name.slice(dot) : "";
+  var final = name, n = 1;
+  while(n < 100){
+    var taken = true;
+    try{ await dir.getFileHandle(final); }
+    catch(e){ taken = false; }
+    if(!taken) break;
+    n++;
+    final = stem + "-" + n + ext;
+  }
+  var fh = await dir.getFileHandle(final, { create:true });
+  var w = await fh.createWritable();
+  await w.write(file);
+  await w.close();
+  return final;
+}
+async function saveShotsInto(dir){
+  var saved = [], failed = 0;
+  for(var i = 0; i < shots.length; i++){
+    if(!shots[i].file) continue;
+    var nm = cleanSeg(String(shots[i].name || ("attachment-" + (i + 1))).replace(/[\\/]/g, "-"));
+    if(!nm){ failed++; continue; }
+    try{ saved.push(await writeInto(dir, nm, shots[i].file)); }
+    catch(e){ failed++; }
+  }
+  return { saved: saved, failed: failed };
 }
 async function makeFolders(){
   var p = folderParts(), h = $("fld-hint");
@@ -1088,16 +1145,31 @@ async function makeFolders(){
   }
   try{
     var root = await getBase(false);
-    var made = 0, all = 0;
-    for(var i = 0; i < p.chains.length; i++){
-      var m = await ensureChain(root, p.chains[i]);
-      made += m.length; all++;
+    var made = 0, dirs = [], i;
+    for(i = 0; i < p.chains.length; i++){
+      var r = await ensureChain(root, p.chains[i]);
+      made += r.made.length;
+      dirs.push(r);
+    }
+    var msg = made
+      ? "اتعمل " + made + " فولدر جديد تحت « " + root.name + " »."
+      : "كل الفولدرات موجودة قبل كده تحت « " + root.name + " ».";
+
+    /* نفس الضغطة بتحفظ المرفقات في الوجهة المختارة */
+    if(shots.length){
+      var pick = $("fld-dest").value, target;
+      if(pick === "root") target = (await ensureChain(root, [p.client, p.code])).dir;
+      else target = (dirs[parseInt(pick, 10)] || dirs[0]).dir;
+      var res = await saveShotsInto(target);
+      msg += " واتحفظ " + res.saved.length + " مرفق في « " + target.name + " »";
+      if(res.failed) msg += " (فشل " + res.failed + ")";
+      msg += ".";
+      toast("اتحفظ " + res.saved.length + " مرفق");
+    } else {
+      toast(made ? "الفولدرات اتعملت" : "الفولدرات موجودة بالفعل");
     }
     h.style.color = "var(--ok)";
-    h.textContent = made
-      ? "اتعمل " + made + " فولدر جديد تحت « " + root.name + " »."
-      : "كل الفولدرات موجودة قبل كده تحت « " + root.name + " » — مفيش حاجة اتغيرت.";
-    toast(made ? "الفولدرات اتعملت" : "الفولدرات موجودة بالفعل");
+    h.textContent = msg;
   }catch(e){
     if(e && e.name === "AbortError"){ h.textContent = "اتلغى اختيار الفولدر."; return; }
     h.style.color = "var(--err)";
@@ -1123,7 +1195,7 @@ function renderShots(){
   th.innerHTML = "";
   $("img-empty").hidden = shots.length > 0;
   $("img-stage").hidden = shots.length === 0;
-  if(!shots.length){ $("img-hint").textContent = ""; return; }
+  if(!shots.length){ $("img-hint").textContent = ""; $("img-name-wrap").hidden = true; return; }
   if(shotIdx >= shots.length) shotIdx = shots.length - 1;
 
   var cur = shots[shotIdx], stage = $("img-stage");
@@ -1161,13 +1233,30 @@ function renderShots(){
     w.appendChild(im); w.appendChild(x);
     th.appendChild(w);
   });
-  $("img-hint").textContent = shots.length + " مرفق — اضغط على الصورة الكبيرة للتكبير.";
+  $("img-name-wrap").hidden = false;
+  $("img-name").value = cur.name || "";
+  $("img-hint").textContent = shots.length + " مرفق — هيتحفظوا في وجهة الحفظ اللي تحت في «فولدرات العميل».";
+}
+function extOf(file, isPdf){
+  if(isPdf) return ".pdf";
+  var m = (file.name || "").match(/\.[a-z0-9]{2,5}$/i);
+  if(m) return m[0].toLowerCase();
+  var t = (file.type || "").split("/")[1] || "png";
+  return "." + (t === "jpeg" ? "jpg" : t);
 }
 function addShot(file){
   if(!file) return;
   var isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
   if(file.type.indexOf("image/") !== 0 && !isPdf) return;
-  shots.push({ url: URL.createObjectURL(file), pdf: isPdf });
+  /* اسم مبدئي بكود الموضوع — الصور المتلزوقة من الواتساب بتيجي بلا اسم مفيد */
+  var stamp = subjectCode() || "attachment";
+  var n = String(shots.length + 1);
+  shots.push({
+    file: file,
+    url: URL.createObjectURL(file),
+    pdf: isPdf,
+    name: stamp + "-" + (n.length < 2 ? "0" + n : n) + extOf(file, isPdf)
+  });
   shotIdx = shots.length - 1;
   renderShots();
 }
@@ -1496,6 +1585,9 @@ $("img-file").onchange = function(){
   Array.prototype.forEach.call(this.files || [], addShot);
   this.value = "";
 };
+$("img-name").addEventListener("input", function(){
+  if(shots[shotIdx]) shots[shotIdx].name = this.value;
+});
 $("btn-img-clear").onclick = function(){
   shots.forEach(function(s){ URL.revokeObjectURL(s.url); });
   shots = []; shotIdx = 0; renderShots();
