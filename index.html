@@ -468,6 +468,7 @@ var DEFAULT_CODES = CFG.codes || window.ELLWAA_CODES || [
   { code:"120", desc:"تعقيب في السعودية",               kind:"معاملة" }
 ];
 var people = DEFAULT_PEOPLE.slice(), codes = DEFAULT_CODES.slice();
+var dirCustom = false;   /* true = المستخدم حفظ دليله بإيده من لوحة الدليل */
 
 function parseRows(text, keys){
   var out = [];
@@ -505,7 +506,7 @@ function applyDirectory(){
     var o = document.createElement("option");
     o.value = c.code; o.label = c.desc; cl.appendChild(o);
   });
-  $("codes-hint").textContent = codes.length + " كود محمّل. الكودات الافتراضية مستنتجة من إيميلاتك — استبدلها بالشيت الرسمي.";
+  $("codes-hint").textContent = codes.length + " كود و" + people.length + " اسم محمّلين" + (dirCustom ? " من دليلك المحفوظ." : " من ملفات الأداة.");
 }
 function defaultCc(){
   return people.filter(function(p){ return p.role.indexOf("نسخة") > -1 && p.email; })
@@ -1184,7 +1185,11 @@ var IDS = ["c-client","c-code","c-seq","to","cc","n-client","n-type","n-owner","
 var LISTS = ["n-owners","n-acts","n-mgr-eg","n-mgr-sa","fld-subs"];
 function save(){
   try{
-    var d = { mode:mode, f:{}, l:{}, ex: !$("example-note").hidden, people:people, codes:codes };
+    /* dirCustom بيتحط بس لما المستخدم يحفظ دليله بإيده. من غيره مبنرجّعش
+       الدليل المخزّن، عشان تحديث codes.js / config.local.js يوصل لكل الناس
+       بدل ما نسخة قديمة في المتصفح تفضل مثبّتة. */
+    var d = { mode:mode, f:{}, l:{}, ex: !$("example-note").hidden,
+              dirCustom:dirCustom, people:people, codes:codes };
     IDS.forEach(function(i){ d.f[i] = $(i).value; });
     LISTS.forEach(function(i){ d.l[i] = readList(i); });
     localStorage.setItem("ellwaa-mail-draft", JSON.stringify(d));
@@ -1195,8 +1200,11 @@ function load(){
     var raw = localStorage.getItem("ellwaa-mail-draft");
     if(!raw) return false;
     var d = JSON.parse(raw);
-    if(d.people && d.people.length) people = d.people;
-    if(d.codes && d.codes.length) codes = d.codes;
+    if(d.dirCustom){
+      dirCustom = true;
+      if(d.people && d.people.length) people = d.people;
+      if(d.codes && d.codes.length) codes = d.codes;
+    }
     applyDirectory();
     $("dir-people").value = peopleToText(people);
     $("dir-codes").value = codesToText(codes);
@@ -1299,11 +1307,13 @@ $("btn-dir-save").onclick = function(){
   var c = parseRows($("dir-codes").value, ["code","desc","kind"]);
   if(p.length) people = p;
   if(c.length) codes = c;
+  dirCustom = true;
   applyDirectory(); render();
   toast("اتحفظ: " + people.length + " اسم و" + codes.length + " كود");
 };
 $("btn-dir-reset").onclick = function(){
   people = DEFAULT_PEOPLE.slice(); codes = DEFAULT_CODES.slice();
+  dirCustom = false;
   $("dir-people").value = peopleToText(people);
   $("dir-codes").value = codesToText(codes);
   applyDirectory(); render();
