@@ -183,7 +183,7 @@ body.dragging{outline:3px dashed var(--accent); outline-offset:-6px}
         <details class="settings" id="settings">
           <summary>الدليل: الأسماء والإيميلات وأكواد المعاملات</summary>
           <div class="settings-bd">
-            <label class="f" for="dir-people">الأسماء والإيميلات — سطر لكل شخص: <span style="font-weight:500">الاسم ، الإيميل ، الدور (مسؤول / نسخة)</span>
+            <label class="f" for="dir-people">الأسماء والإيميلات — سطر لكل شخص: <span style="font-weight:500">الاسم ، الإيميل ، الدور (مسؤول / نسخة / مجموعة) ، القسم</span>
               <textarea id="dir-people" spellcheck="false" style="min-height:110px"></textarea>
               <span class="hint">انسخ الأعمدة من الإكسل والصقها هنا مباشرة — الأداة تقرأ الفاصلة والتاب.</span>
             </label>
@@ -441,6 +441,7 @@ body.dragging{outline:3px dashed var(--accent); outline-offset:-6px}
 
 <!-- إعدادات محلية اختيارية: الأسماء والإيميلات ومسار الدرايف الحقيقي.
      الملف ده في .gitignore ومش بيترفع. لو مش موجود الأداة بتشتغل ببيانات نموذجية. -->
+<script src="codes.js" onerror="void 0"></script>
 <script src="config.local.js" onerror="void 0"></script>
 
 <script>
@@ -462,9 +463,9 @@ var DEFAULT_PEOPLE = CFG.people || [
   { name:"المالية",       email:"finance@example.com", role:"نسخة" },
   { name:"التنفيذ",       email:"exp@example.com",     role:"نسخة" }
 ];
-var DEFAULT_CODES = CFG.codes || [
-  { code:"113", desc:"عميل جديد خدمي",   kind:"عميل جديد" },
-  { code:"120", desc:"تعقيب في المملكة", kind:"معاملة" }
+var DEFAULT_CODES = CFG.codes || window.ELLWAA_CODES || [
+  { code:"113", desc:"تأسيس الشركة الخدمي في السعودية", kind:"عميل جديد" },
+  { code:"120", desc:"تعقيب في السعودية",               kind:"معاملة" }
 ];
 var people = DEFAULT_PEOPLE.slice(), codes = DEFAULT_CODES.slice();
 
@@ -480,20 +481,23 @@ function parseRows(text, keys){
   });
   return out;
 }
-function peopleToText(list){ return list.map(function(p){ return [p.name, p.email, p.role].join("، "); }).join("\n"); }
+function peopleToText(list){
+  return list.map(function(p){ return [p.name, p.email, p.role, p.dept || ""].join("، ").replace(/، $/, ""); }).join("\n");
+}
 function codesToText(list){ return list.map(function(c){ return [c.code, c.desc, c.kind].join("، "); }).join("\n"); }
 
 function applyDirectory(){
   var el = $("emails-list"); el.innerHTML = "";
   var pl = $("people-list"); pl.innerHTML = "";
   people.forEach(function(p){
+    var tag = p.name + (p.dept ? " — " + p.dept : "");
     if(p.email){
       var o = document.createElement("option");
-      o.value = p.email; o.label = p.name; el.appendChild(o);
+      o.value = p.email; o.label = tag; el.appendChild(o);
     }
-    if(p.name){
+    if(p.name && p.role !== "مجموعة"){
       var o2 = document.createElement("option");
-      o2.value = p.name; pl.appendChild(o2);
+      o2.value = p.name; o2.label = p.dept || ""; pl.appendChild(o2);
     }
   });
   var cl = $("codes-list"); cl.innerHTML = "";
@@ -512,14 +516,21 @@ function findCode(c){
   for(var i = 0; i < codes.length; i++) if(codes[i].code === c) return codes[i];
   return null;
 }
+/* المطابقة بالأولوية: تطابق تام الأول، وبعدين احتواء —
+   من غير كده اسم قصير زي «وليد» كان هيتلقّط جوه «مازن وليد».
+   والاحتواء بيرجع null لو طابق أكتر من شخص، عشان مايختارش غلط. */
 function findPersonByName(n){
   n = String(n).trim();
   if(!n) return null;
-  for(var i = 0; i < people.length; i++){
-    if(!people[i].name) continue;
-    if(n === people[i].name || n.indexOf(people[i].name) > -1) return people[i];
+  var i, hits = [];
+  for(i = 0; i < people.length; i++)
+    if(people[i].name && norm(people[i].name) === norm(n)) return people[i];
+  for(i = 0; i < people.length; i++){
+    if(!people[i].name || people[i].role === "مجموعة") continue;
+    if(norm(n).indexOf(norm(people[i].name)) > -1) hits.push(people[i]);
   }
-  return null;
+  if(hits.length !== 1) return null;
+  return hits[0];
 }
 
 /* ================= أرقام ================= */
@@ -1284,7 +1295,7 @@ $("btn-copy").onclick = function(){ if(!this.disabled) copyText($("pv-body").tex
 $("btn-outlook").onclick = function(){ if(!this.disabled) openOutlook(); };
 $("btn-eml").onclick = function(){ if(!this.disabled) downloadEml(); };
 $("btn-dir-save").onclick = function(){
-  var p = parseRows($("dir-people").value, ["name","email","role"]);
+  var p = parseRows($("dir-people").value, ["name","email","role","dept"]);
   var c = parseRows($("dir-codes").value, ["code","desc","kind"]);
   if(p.length) people = p;
   if(c.length) codes = c;
