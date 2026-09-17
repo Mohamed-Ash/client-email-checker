@@ -233,6 +233,7 @@ body.dragging{outline:3px dashed var(--accent); outline-offset:-6px}
           </div>
           <datalist id="emails-list"></datalist>
           <datalist id="people-list"></datalist>
+          <datalist id="names-list"></datalist>
         </fieldset>
 
         <div id="form-new" role="tabpanel" aria-labelledby="tab-new" style="display:flex;flex-direction:column;gap:16px">
@@ -305,19 +306,19 @@ body.dragging{outline:3px dashed var(--accent); outline-offset:-6px}
           <fieldset>
             <legend>من له حق الإدارة في مصر</legend>
             <div id="n-mgr-eg"></div>
-            <div class="btnbar"><button type="button" class="btn sm" data-add="n-mgr-eg">+ إضافة اسم</button></div>
+            <div class="btnbar"><button type="button" class="btn sm" data-add="n-mgr-eg">+ إضافة اسم</button><button type="button" class="btn sm" data-owners="n-mgr-eg">+ كل الملاك</button></div>
           </fieldset>
 
           <fieldset>
             <legend>من له حق الإدارة في المملكة</legend>
             <div id="n-mgr-sa"></div>
-            <div class="btnbar"><button type="button" class="btn sm" data-add="n-mgr-sa">+ إضافة اسم</button></div>
+            <div class="btnbar"><button type="button" class="btn sm" data-add="n-mgr-sa">+ إضافة اسم</button><button type="button" class="btn sm" data-owners="n-mgr-sa">+ كل الملاك</button></div>
           </fieldset>
 
           <fieldset>
             <legend>تفاصيل أخرى</legend>
             <label class="f" for="n-sign">المفوض بالتوقيع
-              <input id="n-sign" autocomplete="off">
+              <input id="n-sign" list="names-list" autocomplete="off">
             </label>
             <label class="f" for="n-notes">ملاحظات ومتطلبات العميل
               <textarea id="n-notes" placeholder="العميل محاسب ومعه دكتوراه في المحاسبة — يريد شركة نظيفة تمامًا ولها يوزر نيم وباسورد."></textarea>
@@ -328,7 +329,11 @@ body.dragging{outline:3px dashed var(--accent); outline-offset:-6px}
             <legend>فولدرات العميل على الدرايف</legend>
             <label class="f" for="fld-base">المسار الأساسي — فولدر database
               <input id="fld-base" spellcheck="false" dir="ltr" style="text-align:left" autocomplete="off">
+              <span class="hint">ده نص للعرض وأمر PowerShell بس. المتصفح مش بياخد مسار مكتوب — لازم تختار الفولدر من نافذة الاختيار.</span>
             </label>
+            <div class="note" id="fld-chosen">الفولدر المختار: <strong id="fld-chosen-name">لسه متحددش</strong>
+              <button type="button" class="btn sm" id="btn-repick" style="margin-inline-start:8px; padding:2px 8px">اختر / غيّر الفولدر</button>
+            </div>
             <div id="fld-subs"></div>
             <div class="btnbar">
               <button type="button" class="btn sm" data-add="fld-subs">+ إضافة فولدر</button>
@@ -589,6 +594,36 @@ function words(n){
 }
 
 /* ================= قوائم ديناميكية ================= */
+var NAME_HOSTS = { "n-owners":1, "n-mgr-eg":1, "n-mgr-sa":1 };
+
+/* مصدر الأسماء: اسم العميل + الملاك. دول اللي بيتكتبوا بالإيد،
+   والباقي بيختار منهم. */
+function knownNames(){
+  var out = [], seen = {};
+  function add(n){
+    n = String(n || "").trim();
+    if(!n || seen[norm(n)]) return;
+    seen[norm(n)] = 1; out.push(n);
+  }
+  add($("n-client").value);
+  readList("n-owners").forEach(function(o){ add(o.name); });
+  return out;
+}
+function refreshNames(){
+  var dl = $("names-list");
+  if(!dl) return;
+  dl.innerHTML = "";
+  knownNames().forEach(function(n){
+    var o = document.createElement("option");
+    o.value = n; dl.appendChild(o);
+  });
+}
+function isKnownName(n){
+  var k = knownNames();
+  for(var i = 0; i < k.length; i++) if(norm(k[i]) === norm(n)) return true;
+  return false;
+}
+
 function addRow(hostId, item){
   item = item || {};
   var host = $(hostId), isOwner = (hostId === "n-owners");
@@ -601,6 +636,9 @@ function addRow(hostId, item){
   var a = document.createElement("input");
   a.autocomplete = "off"; a.value = item.name || "";
   a.placeholder = isOwner ? "الاسم رباعي" : "اكتب هنا";
+  /* أي خانة بتاخد اسم شخص بتقترح الأسماء المكتوبة قبل كده في نفس الفورم،
+     عشان الاسم الرباعي يتكتب مرة واحدة بس */
+  if(NAME_HOSTS[hostId]) a.setAttribute("list", "names-list");
   line.appendChild(a);
 
   if(isOwner){
@@ -884,6 +922,18 @@ function validate(){
     if(!readList("n-mgr-eg").length) out.push(["err", "من له حق الإدارة في مصر مطلوب"]);
     if(!readList("n-mgr-sa").length) out.push(["err", "من له حق الإدارة في المملكة مطلوب"]);
     if(!$("n-sign").value.trim()) out.push(["err", "المفوض بالتوقيع مطلوب"]);
+
+    /* اسم مكتوب بشكل مختلف عن اللي في الملاك = غالبًا غلطة كتابة.
+       بس ممكن يكون مدير من برّه الملاك، فتنبيه مش خطأ. */
+    [["n-mgr-eg", "حق الإدارة في مصر"], ["n-mgr-sa", "حق الإدارة في المملكة"]].forEach(function(pair){
+      readList(pair[0]).forEach(function(r){
+        if(!isKnownName(r.name))
+          out.push(["warn", pair[1] + ": « " + r.name + " » مش مطابق لأي اسم في الملاك — راجع الكتابة"]);
+      });
+    });
+    var sg = $("n-sign").value.trim();
+    if(sg && !isKnownName(sg))
+      out.push(["warn", "المفوض بالتوقيع « " + sg + " » مش مطابق لأي اسم في الملاك — راجع الكتابة"]);
     if(!readList("n-acts").length) out.push(["warn", "لم تُحدَّد أنشطة إضافية — هيتكتب «هيتم تحديدها»"]);
 
     var p2 = checkPhone($("n-phone").value, "n-phone-hint");
@@ -1080,16 +1130,38 @@ async function verifyPerm(h){
     return (await h.requestPermission(o)) === "granted";
   }catch(e){ return false; }
 }
+function expectedLeaf(){
+  var b = $("fld-base").value.trim().replace(/[\\/]+$/, "");
+  var parts = b.split(/[\\/]+/);
+  return parts[parts.length - 1] || "database";
+}
+function showChosen(h){
+  var el = $("fld-chosen-name");
+  if(!h){ el.textContent = "لسه متحددش"; el.style.color = ""; return; }
+  var okName = norm(h.name) === norm(expectedLeaf());
+  el.textContent = h.name + (okName ? "" : "  ⚠ المفروض « " + expectedLeaf() + " »");
+  el.style.color = okName ? "var(--ok)" : "var(--err)";
+}
 async function getBase(repick){
   if(!repick){
-    if(baseHandle && await verifyPerm(baseHandle)) return baseHandle;
+    if(baseHandle && await verifyPerm(baseHandle)){ showChosen(baseHandle); return baseHandle; }
     var stored = await idbKV("get", "baseDir");
-    if(stored && await verifyPerm(stored)){ baseHandle = stored; return stored; }
+    if(stored && await verifyPerm(stored)){ baseHandle = stored; showChosen(stored); return stored; }
   }
   var h = await window.showDirectoryPicker({ mode:"readwrite", id:"ellwaa-database" });
   baseHandle = h;
   idbKV("put", "baseDir", h);
+  showChosen(h);
   return h;
+}
+/* بيقرا الفولدر المحفوظ من غير ما يطلب إذن — عشان العرض وقت التحميل */
+async function peekBase(){
+  try{
+    var stored = await idbKV("get", "baseDir");
+    if(!stored) return;
+    baseHandle = stored;
+    showChosen(stored);
+  }catch(e){}
 }
 async function ensureChain(root, parts){
   var cur = root, made = [];
@@ -1145,6 +1217,25 @@ async function makeFolders(){
   }
   try{
     var root = await getBase(false);
+
+    /* الحارس: المتصفح بيفتح على Downloads افتراضيًا، فسهل جدًا إن حد
+       يضغط OK وهو فيه. مبنكتبش حاجة قبل ما نتأكد إن ده الفولدر الصح. */
+    if(norm(root.name) !== norm(expectedLeaf())){
+      var go = window.confirm(
+        "الفولدر المختار اسمه « " + root.name + " » مش « " + expectedLeaf() + " ».\n\n" +
+        "لو ده مش المكان الصح، اضغط Cancel واختر فولدر " + expectedLeaf() + " من الدرايف.\n\n" +
+        "أكمل الكتابة في « " + root.name + " » برضه؟"
+      );
+      if(!go){
+        root = await getBase(true);
+        if(norm(root.name) !== norm(expectedLeaf())){
+          h.style.color = "var(--err)";
+          h.textContent = "لسه الفولدر « " + root.name + " » مش « " + expectedLeaf() + " » — مكتبتش حاجة.";
+          return;
+        }
+      }
+    }
+
     var made = 0, dirs = [], i;
     for(i = 0; i < p.chains.length; i++){
       var r = await ensureChain(root, p.chains[i]);
@@ -1404,6 +1495,7 @@ function render(){
   $("pv-subj").textContent = [subjectCode(), name].filter(Boolean).join(" — ") || "—";
   $("pv-body").textContent = mode === "tx" ? buildTx() : buildNew();
   renderFolders();
+  refreshNames();
 
   var approxLen = encodeURIComponent($("pv-body").textContent).length;
   var hint;
@@ -1564,12 +1656,34 @@ $("btn-dir-reset").onclick = function(){
 });
 
 document.addEventListener("click", function(e){
-  var b = e.target && e.target.closest ? e.target.closest("[data-add]") : null;
-  if(b){ e.preventDefault(); addRow(b.getAttribute("data-add")); render(); }
+  if(!e.target || !e.target.closest) return;
+  var b = e.target.closest("[data-add]");
+  if(b){ e.preventDefault(); addRow(b.getAttribute("data-add")); render(); return; }
+
+  var o = e.target.closest("[data-owners]");
+  if(o){
+    e.preventDefault();
+    var host = o.getAttribute("data-owners");
+    var have = readList(host).map(function(x){ return norm(x.name); });
+    var added = 0;
+    readList("n-owners").forEach(function(ow){
+      if(have.indexOf(norm(ow.name)) > -1) return;
+      addRow(host, { name: ow.name }); added++;
+    });
+    /* شيل السطور الفاضية اللي كانت موجودة قبل الإضافة */
+    var rows = $(host).querySelectorAll(".listrow");
+    for(var i = rows.length - 1; i >= 0; i--){
+      var inp = rows[i].querySelector("input");
+      if(inp && !inp.value.trim() && rows.length > 1) rows[i].remove();
+    }
+    render();
+    toast(added ? "اتضاف " + added + " اسم" : "الأسماء موجودة بالفعل");
+  }
 });
 
 /* الفولدرات */
 $("btn-mkdir").onclick = makeFolders;
+$("btn-repick").onclick = function(){ getBase(true).catch(function(){}); };
 $("btn-ps").onclick = function(){
   var cmd = psCommand();
   if(!cmd){ toast("محتاج رقم العميل وكود المعاملة الأول"); return; }
@@ -1615,6 +1729,7 @@ document.addEventListener("drop", function(e){
 });
 
 applyDirectory();
+peekBase();
 renderShots();
 if(!load()){
   $("dir-people").value = peopleToText(people);
