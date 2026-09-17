@@ -72,6 +72,10 @@ input.good{border-color:var(--ok)}
 .listrow{display:flex; gap:8px; align-items:center; margin-bottom:8px}
 .listrow input:first-child{flex:1; min-width:0}
 .listrow input.pct{width:84px; flex:none}
+.listrow.owner{flex-direction:column; align-items:stretch; gap:4px; margin-bottom:12px}
+.owner-line{display:flex; gap:8px; align-items:center}
+.owner-line input.nid{flex:1.2; min-width:120px}
+@media (max-width:560px){ .owner-line{flex-wrap:wrap} .owner-line input.nid{flex:1 1 100%} }
 .btn{
   font:inherit; font-weight:600; font-size:13px; cursor:pointer;
   background:var(--surface2); color:var(--ink); border:1px solid var(--line2);
@@ -386,19 +390,19 @@ body.dragging{outline:3px dashed var(--accent); outline-offset:-6px}
     <div class="sticky" style="display:flex;flex-direction:column;gap:16px">
       <div class="panel" id="img-panel">
         <div class="panel-hd">
-          <h2>صورة الواتساب</h2>
+          <h2>مرفقات الواتساب</h2>
           <div class="btnbar">
-            <button type="button" class="btn sm" id="btn-img-add">اختر صورة</button>
+            <button type="button" class="btn sm" id="btn-img-add">اختر ملف</button>
             <button type="button" class="btn sm" id="btn-img-clear">مسح الكل</button>
           </div>
         </div>
         <div class="panel-bd">
-          <div class="note" id="img-empty">الصق الصورة بـ Ctrl+V في أي مكان في الصفحة، أو اسحبها وارميها هنا. الصور بتفضل على جهازك وبتتمسح لما تقفل الصفحة — متترفعش لأي مكان.</div>
+          <div class="note" id="img-empty">الصق الصورة بـ Ctrl+V في أي مكان في الصفحة، أو اسحب الصور وملفات الـ PDF وارميها هنا. المرفقات بتفضل على جهازك وبتتمسح لما تقفل الصفحة — متترفعش لأي مكان.</div>
           <div id="img-stage" hidden><img id="img-big" alt="صورة بيانات العميل"></div>
           <div id="img-thumbs" class="thumbs"></div>
           <span class="hint" id="img-hint"></span>
         </div>
-        <input type="file" id="img-file" accept="image/*" multiple hidden>
+        <input type="file" id="img-file" accept="image/*,application/pdf" multiple hidden>
       </div>
 
       <div class="panel">
@@ -579,25 +583,44 @@ function words(n){
 }
 
 /* ================= قوائم ديناميكية ================= */
-function addRow(hostId, v1, v2){
-  var host = $(hostId), pct = (hostId === "n-owners");
+function addRow(hostId, item){
+  item = item || {};
+  var host = $(hostId), isOwner = (hostId === "n-owners");
   var row = document.createElement("div");
-  row.className = "listrow";
+  row.className = isOwner ? "listrow owner" : "listrow";
+
+  var line = isOwner ? document.createElement("div") : row;
+  if(isOwner) line.className = "owner-line";
+
   var a = document.createElement("input");
-  a.autocomplete = "off"; a.value = v1 || "";
-  a.placeholder = pct ? "الاسم رباعي" : "اكتب هنا";
-  row.appendChild(a);
-  if(pct){
+  a.autocomplete = "off"; a.value = item.name || "";
+  a.placeholder = isOwner ? "الاسم رباعي" : "اكتب هنا";
+  line.appendChild(a);
+
+  if(isOwner){
     var b = document.createElement("input");
     b.className = "pct"; b.autocomplete = "off"; b.inputMode = "decimal";
-    b.placeholder = "%"; b.value = (v2 === undefined || v2 === null) ? "" : v2;
-    row.appendChild(b);
+    b.placeholder = "%"; b.value = item.pct == null ? "" : item.pct;
+    line.appendChild(b);
+
+    var c = document.createElement("input");
+    c.className = "nid"; c.autocomplete = "off"; c.inputMode = "numeric";
+    c.placeholder = "الرقم القومي / الهوية"; c.value = item.nid || "";
+    line.appendChild(c);
   }
+
   var del = document.createElement("button");
   del.type = "button"; del.className = "btn icon"; del.textContent = "×";
   del.setAttribute("aria-label", "حذف السطر");
   del.onclick = function(){ row.remove(); render(); };
-  row.appendChild(del);
+  line.appendChild(del);
+
+  if(isOwner){
+    row.appendChild(line);
+    var h = document.createElement("span");
+    h.className = "hint nid-hint";
+    row.appendChild(h);
+  }
   host.appendChild(row);
   return row;
 }
@@ -607,14 +630,18 @@ function readList(hostId){
     var ins = rows[i].querySelectorAll("input");
     var name = ins[0].value.trim();
     if(!name) continue;
-    out.push({ name:name, pct: ins.length > 1 ? ins[1].value.trim() : null });
+    out.push({
+      name: name,
+      pct:  ins.length > 1 ? ins[1].value.trim() : null,
+      nid:  ins.length > 2 ? ins[2].value.trim() : ""
+    });
   }
   return out;
 }
 function setList(hostId, arr){
   $(hostId).innerHTML = "";
-  if(!arr || !arr.length) arr = [{ name:"", pct:"" }];
-  for(var i = 0; i < arr.length; i++) addRow(hostId, arr[i].name, arr[i].pct);
+  if(!arr || !arr.length) arr = [{}];
+  for(var i = 0; i < arr.length; i++) addRow(hostId, arr[i]);
 }
 
 /* ================= بناء الإيميل ================= */
@@ -644,7 +671,9 @@ function buildNew(){
   L.push("أسماء الملاك وحصص الملكية:");
   var ow = readList("n-owners");
   L.push(ow.length ? ow.map(function(o, i){
-    return (i + 1) + "- " + o.name + "   " + (o.pct ? String(o.pct).replace(/%/g, "") + "%" : "—");
+    var line = (i + 1) + "- " + o.name + "   " + (o.pct ? String(o.pct).replace(/%/g, "") + "%" : "—");
+    if(o.nid) line += "   رقم قومي: " + digitsOf(o.nid);
+    return line;
   }).join("\n") : "—");
   L.push("");
   L.push("الأنشطة الإضافية على حسب رغبة العميل:");
@@ -793,11 +822,44 @@ function validate(){
       else out.push(["ok", "سعر التحويل: " + rate.toFixed(3) + " جنيه لكل ريال"]);
     }
 
+    /* الرقم القومي لكل مالك: النتيجة بتتكتب تحت سطره، والأخطاء بتطلع في اللوحة */
+    var idHints = $("n-owners").querySelectorAll(".nid-hint");
+    var idRows = $("n-owners").querySelectorAll(".listrow");
+    var noId = 0;
+    for(var k = 0; k < idRows.length; k++){
+      var inp = idRows[k].querySelectorAll("input");
+      var who = inp[0].value.trim(), res = checkNationalId(inp[2] ? inp[2].value : "");
+      var hint = idHints[k];
+      if(inp[2]) inp[2].classList.remove("bad", "good");
+      if(!hint) continue;
+      if(!who && !res){ hint.textContent = ""; hint.style.color = ""; continue; }
+      if(!res){
+        hint.textContent = "لسه مفيش رقم قومي"; hint.style.color = "";
+        if(who) noId++;
+        continue;
+      }
+      hint.textContent = res.msg;
+      hint.style.color = res.ok ? "var(--ok)" : "var(--err)";
+      if(inp[2]) inp[2].classList.add(res.ok ? "good" : "bad");
+      var label = who || "المالك رقم " + (k + 1);
+      if(!res.ok) out.push(["err", label + ": " + res.msg]);
+      else{
+        out.push(["ok", label + " — " + res.msg]);
+        if(res.age !== undefined && res.age < 18)
+          out.push(["warn", label + " سنه " + res.age + " سنة — قاصر، راجع الحالة"]);
+      }
+    }
+    if(noId) out.push(["warn", "في " + noId + " مالك من غير رقم قومي"]);
+
     var ow = readList("n-owners"), sum = 0, missing = 0;
     for(var i = 0; i < ow.length; i++){
       var v = num(ow[i].pct);
       if(isFinite(v)) sum += v; else missing++;
     }
+    var ids = ow.map(function(o){ return digitsOf(o.nid); }).filter(Boolean);
+    for(var a1 = 0; a1 < ids.length; a1++)
+      for(var b1 = a1 + 1; b1 < ids.length; b1++)
+        if(ids[a1] === ids[b1]){ out.push(["err", "رقم قومي متكرر لأكتر من مالك: " + ids[a1]]); a1 = b1 = ids.length; }
     var sh = $("n-shares-h"); sh.style.color = "";
     if(!ow.length){ out.push(["err", "لازم مالك واحد على الأقل"]); sh.textContent = ""; }
     else if(missing){
@@ -881,6 +943,61 @@ function downloadEml(){
   a.remove();
   setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
   toast("نزّل الملف — افتحه بدبل كليك يفتح كمسودة في أوتلوك");
+}
+
+/* ================= الرقم القومي / الهوية =================
+   الفكرة إن الرقم مش عشوائي: المصري بيحمل جواه تاريخ الميلاد وكود
+   المحافظة والنوع، والسعودي فيه رقم تحقق حسابي. فبدل ما نقرا الرقم
+   من الصورة بـ OCR ونصدّقه، بنتحقق منه وبنطلّع اللي جواه عشان
+   تقارنه بالكارت اللي مثبّت جنبك. أي رقم متبدّل بيبوّظ التاريخ أو
+   المحافظة أو رقم التحقق فورًا. */
+var EG_GOV = {
+  "01":"القاهرة","02":"الإسكندرية","03":"بورسعيد","04":"السويس","11":"دمياط",
+  "12":"الدقهلية","13":"الشرقية","14":"القليوبية","15":"كفر الشيخ","16":"الغربية",
+  "17":"المنوفية","18":"البحيرة","19":"الإسماعيلية","21":"الجيزة","22":"بني سويف",
+  "23":"الفيوم","24":"المنيا","25":"أسيوط","26":"سوهاج","27":"قنا","28":"أسوان",
+  "29":"الأقصر","31":"البحر الأحمر","32":"الوادي الجديد","33":"مطروح",
+  "34":"شمال سيناء","35":"جنوب سيناء","88":"مولود خارج مصر"
+};
+function checkEgyptId(d){
+  if(d.charAt(0) !== "2" && d.charAt(0) !== "3")
+    return { ok:false, msg:"الرقم القومي لازم يبدأ بـ 2 أو 3" };
+  var year = (d.charAt(0) === "2" ? 1900 : 2000) + parseInt(d.substr(1, 2), 10);
+  var mm = parseInt(d.substr(3, 2), 10), dd = parseInt(d.substr(5, 2), 10);
+  var dt = new Date(year, mm - 1, dd);
+  if(mm < 1 || mm > 12 || dd < 1 ||
+     dt.getFullYear() !== year || dt.getMonth() !== mm - 1 || dt.getDate() !== dd)
+    return { ok:false, msg:"تاريخ الميلاد اللي جوه الرقم غير صحيح — راجع الأرقام من 2 لـ 7" };
+  var now = new Date();
+  if(dt > now) return { ok:false, msg:"تاريخ الميلاد اللي جوه الرقم في المستقبل" };
+  var gov = EG_GOV[d.substr(7, 2)];
+  if(!gov) return { ok:false, msg:"كود المحافظة (" + d.substr(7, 2) + ") مش معروف — راجع الرقمين 8 و9" };
+  var age = Math.floor((now - dt) / 31557600000);
+  return {
+    ok: true, age: age,
+    msg: dd + "/" + mm + "/" + year + " · " + gov + " · " +
+         (parseInt(d.charAt(12), 10) % 2 === 1 ? "ذكر" : "أنثى") + " · " + age + " سنة"
+  };
+}
+function checkSaudiId(d){
+  if(d.charAt(0) !== "1" && d.charAt(0) !== "2")
+    return { ok:false, msg:"الهوية السعودية لازم تبدأ بـ 1 (مواطن) أو 2 (مقيم)" };
+  var sum = 0;
+  for(var i = 0; i < 9; i++){
+    var n = parseInt(d.charAt(i), 10);
+    if(i % 2 === 0){ n *= 2; if(n > 9) n -= 9; }
+    sum += n;
+  }
+  if(((10 - (sum % 10)) % 10) !== parseInt(d.charAt(9), 10))
+    return { ok:false, msg:"رقم التحقق مش مظبوط — في رقم متكتب غلط" };
+  return { ok:true, msg:(d.charAt(0) === "1" ? "مواطن سعودي" : "مقيم") + " · الرقم متماسك" };
+}
+function checkNationalId(raw){
+  var d = digitsOf(raw);
+  if(!d) return null;
+  if(d.length === 14) return checkEgyptId(d);
+  if(d.length === 10) return checkSaudiId(d);
+  return { ok:false, msg:"الطول " + d.length + " رقم — المصري 14 والسعودي 10" };
 }
 
 /* ================= الفولدرات ================= */
@@ -996,6 +1113,11 @@ function psCommand(){
 
 /* ================= صور الواتساب ================= */
 var shots = [], shotIdx = 0;
+/* PDF صغير كأيقونة للمصغّرة، عشان الـ PDF مينفعش يتعرض في <img> */
+var PDF_THUMB = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="56" height="56" rx="6" fill="#B03535"/>' +
+  '<text x="28" y="36" font-family="sans-serif" font-size="15" font-weight="bold" fill="#fff" text-anchor="middle">PDF</text></svg>');
+
 function renderShots(){
   var th = $("img-thumbs");
   th.innerHTML = "";
@@ -1003,12 +1125,28 @@ function renderShots(){
   $("img-stage").hidden = shots.length === 0;
   if(!shots.length){ $("img-hint").textContent = ""; return; }
   if(shotIdx >= shots.length) shotIdx = shots.length - 1;
-  $("img-big").src = shots[shotIdx].url;
+
+  var cur = shots[shotIdx], stage = $("img-stage");
+  stage.innerHTML = "";
+  if(cur.pdf){
+    var emb = document.createElement("embed");
+    emb.src = cur.url; emb.type = "application/pdf";
+    emb.style.width = "100%"; emb.style.height = "46vh"; emb.style.display = "block";
+    stage.appendChild(emb);
+    stage.classList.remove("zoom");
+  } else {
+    var big = document.createElement("img");
+    big.id = "img-big"; big.src = cur.url; big.alt = "مرفق العميل";
+    big.onclick = function(){ stage.classList.toggle("zoom"); };
+    stage.appendChild(big);
+  }
+
   shots.forEach(function(s, i){
     var w = document.createElement("div");
     w.className = "thumbwrap";
     var im = document.createElement("img");
-    im.src = s.url; im.alt = "صورة " + (i + 1);
+    im.src = s.pdf ? PDF_THUMB : s.url;
+    im.alt = (s.pdf ? "ملف PDF " : "صورة ") + (i + 1);
     if(i === shotIdx) im.className = "on";
     im.onclick = function(){ shotIdx = i; renderShots(); };
     var x = document.createElement("button");
@@ -1023,11 +1161,13 @@ function renderShots(){
     w.appendChild(im); w.appendChild(x);
     th.appendChild(w);
   });
-  $("img-hint").textContent = shots.length + " صورة — اضغط على الصورة الكبيرة للتكبير.";
+  $("img-hint").textContent = shots.length + " مرفق — اضغط على الصورة الكبيرة للتكبير.";
 }
 function addShot(file){
-  if(!file || file.type.indexOf("image/") !== 0) return;
-  shots.push({ url: URL.createObjectURL(file) });
+  if(!file) return;
+  var isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name || "");
+  if(file.type.indexOf("image/") !== 0 && !isPdf) return;
+  shots.push({ url: URL.createObjectURL(file), pdf: isPdf });
   shotIdx = shots.length - 1;
   renderShots();
 }
@@ -1110,8 +1250,14 @@ function runImport(){
     var pct = host === "n-owners";
     var rows = buckets[host].map(function(t){
       if(!pct) return { name:t };
-      var mm = t.match(/^(.*?)[\s=]*([\d\u0660-\u0669]+(?:\.\d+)?)\s*%?\s*$/);
-      return mm && mm[2] ? { name:mm[1].trim(), pct:numStr(mm[2]) } : { name:t, pct:"" };
+      /* \u0627\u0644\u0631\u0642\u0645 \u0627\u0644\u0642\u0648\u0645\u064a (14) \u0623\u0648 \u0627\u0644\u0647\u0648\u064a\u0629 (10) \u0628\u064a\u062a\u0634\u0627\u0644\u0648\u0627 \u0627\u0644\u0623\u0648\u0644\u060c \u0639\u0634\u0627\u0646 \u0645\u0627\u064a\u062a\u0642\u0631\u0648\u0634 \u0646\u0633\u0628\u0629 */
+      var nid = "", rest = t;
+      var idm = t.match(/(?:^|\D)([\d\u0660-\u0669]{14}|[\d\u0660-\u0669]{10})(?!\d)/);
+      if(idm){ nid = digitsOf(idm[1]); rest = t.replace(idm[1], " ").trim(); }
+      var mm = rest.match(/^(.*?)[\s=]*([\d\u0660-\u0669]+(?:\.\d+)?)\s*%?\s*$/);
+      return mm && mm[2]
+        ? { name:mm[1].trim(), pct:numStr(mm[2]), nid:nid }
+        : { name:rest.trim(), pct:"", nid:nid };
     });
     if(rows.length){ setList(host, rows); filled++; }
   });
@@ -1242,7 +1388,7 @@ function loadExample(){
   $("n-egp").value = "69500"; $("n-sar").value = "5005.87"; $("n-sar2").value = "5005.87"; $("n-total").value = "20000";
   $("n-sign").value = "خالد سمير عبد الله منصور";
   $("n-notes").value = "العميل محاسب ومعه دكتوراه في المحاسبة — يريد شركة نظيفة تمامًا، ولها يوزر نيم وباسورد.";
-  setList("n-owners", [{ name:"خالد سمير عبد الله منصور", pct:"99" }, { name:"زوجته — ستُرسل صورة البطاقة", pct:"1" }]);
+  setList("n-owners", [{ name:"خالد سمير عبد الله منصور", pct:"99", nid:"28703142101234" }, { name:"زوجته — ستُرسل صورة البطاقة", pct:"1", nid:"" }]);
   setList("n-acts", [{ name:"هيتم تحديدها" }]);
   setList("n-mgr-eg", [{ name:"خالد سمير عبد الله منصور" }]);
   setList("n-mgr-sa", [{ name:"خالد سمير عبد الله منصور" }]);
@@ -1354,16 +1500,12 @@ $("btn-img-clear").onclick = function(){
   shots.forEach(function(s){ URL.revokeObjectURL(s.url); });
   shots = []; shotIdx = 0; renderShots();
 };
-$("img-big").onclick = function(){ $("img-stage").classList.toggle("zoom"); };
 document.addEventListener("paste", function(e){
   var items = (e.clipboardData && e.clipboardData.items) || [];
-  var got = false;
-  for(var i = 0; i < items.length; i++){
-    if(items[i].kind === "file" && items[i].type.indexOf("image/") === 0){
-      addShot(items[i].getAsFile()); got = true;
-    }
-  }
-  if(got){ e.preventDefault(); toast("الصورة اتثبتت جنب الفورم"); }
+  var before = shots.length;
+  for(var i = 0; i < items.length; i++)
+    if(items[i].kind === "file") addShot(items[i].getAsFile());
+  if(shots.length > before){ e.preventDefault(); toast("المرفق اتثبت جنب الفورم"); }
 });
 ["dragenter","dragover"].forEach(function(ev){
   document.addEventListener(ev, function(e){ e.preventDefault(); document.body.classList.add("dragging"); });
