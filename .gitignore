@@ -1,0 +1,4 @@
+config.local.js
+*.eml
+.DS_Store
+Thumbs.db

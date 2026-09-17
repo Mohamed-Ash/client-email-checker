@@ -1,0 +1,1376 @@
+<title>مُدقّق إيميلات اللواء</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Readex+Pro:wght@500;600&display=swap">
+<style>
+:root{
+  --bg:#F4F6F9; --surface:#FFFFFF; --surface2:#EDF1F6; --ink:#141C26; --ink2:#4E596B;
+  --line:#D6DEE8; --line2:#C2CCDA; --accent:#2F5AA8; --accent-soft:#E7EEFA;
+  --ok:#14663F; --ok-bg:#E4F3EB; --warn:#8A5A00; --warn-bg:#FBF0D8; --err:#A82121; --err-bg:#FBE8E8;
+  --radius:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E131A; --surface:#161D26; --surface2:#1D2631; --ink:#E7ECF3; --ink2:#9BA8B9;
+    --line:#2A3441; --line2:#3A4655; --accent:#82A9EE; --accent-soft:#1A2640;
+    --ok:#5CC58E; --ok-bg:#12291F; --warn:#E3B95B; --warn-bg:#2C2413; --err:#F08C8C; --err-bg:#301A1A;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E131A; --surface:#161D26; --surface2:#1D2631; --ink:#E7ECF3; --ink2:#9BA8B9;
+  --line:#2A3441; --line2:#3A4655; --accent:#82A9EE; --accent-soft:#1A2640;
+  --ok:#5CC58E; --ok-bg:#12291F; --warn:#E3B95B; --warn-bg:#2C2413; --err:#F08C8C; --err-bg:#301A1A;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  direction:rtl; background:var(--bg); color:var(--ink); margin:0;
+  font-family:"IBM Plex Sans Arabic",system-ui,"Segoe UI",sans-serif;
+  font-size:14px; line-height:1.65; font-variant-numeric:tabular-nums;
+}
+.wrap{max-width:1240px; margin:0 auto; padding-inline:16px; padding-block:20px 48px}
+h1,h2,h3{font-family:"Readex Pro","IBM Plex Sans Arabic",sans-serif; font-weight:600; margin:0; text-wrap:balance}
+header.top{display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; justify-content:space-between; margin-bottom:18px}
+header.top h1{font-size:22px; letter-spacing:-.01em}
+header.top p{margin:4px 0 0; color:var(--ink2); font-size:13px; max-width:58ch}
+.tabs{display:flex; gap:6px; background:var(--surface2); padding:4px; border-radius:var(--radius); border:1px solid var(--line)}
+.tabs button{
+  font:inherit; font-weight:600; color:var(--ink2); background:none; border:0; cursor:pointer;
+  padding:8px 16px; border-radius:7px;
+}
+.tabs button[aria-selected="true"]{background:var(--surface); color:var(--accent); box-shadow:0 1px 2px rgba(20,28,38,.12)}
+.tabs button:focus-visible,.btn:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+.grid{display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,1fr); gap:20px; align-items:start}
+@media (max-width:900px){ .grid{grid-template-columns:1fr} }
+
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius)}
+.panel > .panel-hd{
+  display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  padding:12px 16px; border-bottom:1px solid var(--line);
+}
+.panel-hd h2{font-size:15px}
+.panel-bd{padding:16px; display:flex; flex-direction:column; gap:16px}
+
+fieldset{border:0; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; min-width:0}
+legend{font-size:11px; font-weight:700; letter-spacing:.08em; color:var(--ink2); padding:0; margin-bottom:2px}
+.row{display:grid; grid-template-columns:repeat(auto-fit,minmax(165px,1fr)); gap:10px}
+.row.code{grid-template-columns:minmax(90px,.7fr) minmax(150px,1.3fr) minmax(80px,.6fr)}
+@media (max-width:520px){ .row.code{grid-template-columns:1fr} }
+label.f{display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:600; color:var(--ink2); min-width:0}
+input,textarea,select{
+  font:inherit; font-size:14px; color:var(--ink); background:var(--surface2);
+  border:1px solid var(--line2); border-radius:8px; padding:8px 10px; width:100%;
+  font-variant-numeric:tabular-nums;
+}
+textarea{min-height:64px; resize:vertical; line-height:1.6}
+.hint{font-size:11px; font-weight:500; color:var(--ink2); min-height:15px}
+.hint.words{color:var(--accent)}
+input.bad{border-color:var(--err); background:var(--err-bg)}
+input.good{border-color:var(--ok)}
+
+.listrow{display:flex; gap:8px; align-items:center; margin-bottom:8px}
+.listrow input:first-child{flex:1; min-width:0}
+.listrow input.pct{width:84px; flex:none}
+.btn{
+  font:inherit; font-weight:600; font-size:13px; cursor:pointer;
+  background:var(--surface2); color:var(--ink); border:1px solid var(--line2);
+  border-radius:8px; padding:7px 12px;
+}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+.btn[disabled]{opacity:.5; cursor:not-allowed}
+.btn.primary[disabled]{background:var(--ink2); border-color:var(--ink2)}
+.btn.icon{padding:6px 9px; line-height:1; font-size:15px}
+.btn.sm{padding:5px 10px; font-size:12px}
+.btnbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+
+details.settings{border:1px solid var(--line); border-radius:8px; background:var(--surface2)}
+details.settings > summary{cursor:pointer; padding:9px 12px; font-size:12.5px; font-weight:700; color:var(--ink2); list-style:none}
+details.settings > summary::-webkit-details-marker{display:none}
+details.settings > summary::before{content:"\25C0"; font-size:9px; margin-inline-end:7px; display:inline-block}
+details.settings[open] > summary::before{transform:rotate(-90deg)}
+.settings-bd{padding:0 12px 12px; display:flex; flex-direction:column; gap:12px}
+.settings-bd .hint{min-height:0}
+
+.checks{display:flex; flex-direction:column; gap:7px}
+.check{display:flex; gap:9px; align-items:flex-start; padding:9px 11px; border-radius:8px; font-size:13px; font-weight:500; border:1px solid transparent}
+.check .mark{font-weight:700; flex:none; width:16px; text-align:center}
+.check.err{background:var(--err-bg); color:var(--err); border-color:var(--err)}
+.check.warn{background:var(--warn-bg); color:var(--warn); border-color:var(--warn)}
+.check.ok{background:var(--ok-bg); color:var(--ok)}
+.status{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px}
+.status.err{background:var(--err-bg); color:var(--err)}
+.status.warn{background:var(--warn-bg); color:var(--warn)}
+.status.ok{background:var(--ok-bg); color:var(--ok)}
+
+.mailhead{display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:13px; margin:0; padding:12px 16px; background:var(--surface2); border-bottom:1px solid var(--line)}
+.mailhead dt{font-weight:700; color:var(--ink2); font-size:12px}
+.mailhead dd{margin:0; word-break:break-word}
+.mailhead dd.subject{font-weight:700}
+pre.body{
+  margin:0; padding:16px; white-space:pre-wrap; word-break:break-word;
+  font-family:"IBM Plex Sans Arabic",sans-serif; font-size:13.5px; line-height:1.85;
+  font-variant-numeric:tabular-nums; max-height:52vh; overflow:auto;
+}
+.sendbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:12px 16px; border-top:1px solid var(--line)}
+.sticky{position:sticky; top:calc(env(safe-area-inset-top, 0px) + 12px)}
+@media (max-width:900px){ .sticky{position:static} }
+.note{font-size:12px; color:var(--ink2); background:var(--accent-soft); border:1px solid var(--line); border-radius:8px; padding:9px 12px}
+.ack{display:flex; gap:8px; align-items:center; font-size:12.5px; font-weight:600; color:var(--warn)}
+.ack input{width:auto; accent-color:var(--accent)}
+.thumbs{display:flex; gap:8px; flex-wrap:wrap}
+.thumbs img{
+  width:56px; height:56px; object-fit:cover; border-radius:6px; cursor:pointer;
+  border:2px solid var(--line2); background:var(--surface2);
+}
+.thumbs img.on{border-color:var(--accent)}
+.thumbwrap{position:relative}
+.thumbwrap button{
+  position:absolute; inset-block-start:-6px; inset-inline-start:-6px;
+  width:20px; height:20px; border-radius:50%; border:1px solid var(--line2);
+  background:var(--surface); color:var(--ink); font-size:12px; line-height:1;
+  cursor:pointer; padding:0; font-weight:700;
+}
+#img-stage{border:1px solid var(--line); border-radius:8px; overflow:auto; background:var(--surface2); max-height:46vh}
+#img-big{display:block; width:100%; max-width:100%; cursor:zoom-in}
+#img-stage.zoom{max-height:70vh}
+#img-stage.zoom #img-big{width:auto; max-width:none; cursor:zoom-out}
+body.dragging{outline:3px dashed var(--accent); outline-offset:-6px}
+.toast{position:fixed; inset-block-end:18px; inset-inline-start:50%; transform:translateX(50%); background:var(--ink); color:var(--bg); padding:9px 18px; border-radius:999px; font-size:13px; font-weight:600; opacity:0; transition:opacity .25s; pointer-events:none; max-width:86vw; text-align:center}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>مُدقّق إيميلات اللواء</h1>
+      <p>املأ البيانات، والأداة تبني الإيميل بصيغة موحّدة، تدقّق الأرقام، وتفتحه مباشرة في أوتلوك كمسودة جاهزة للإرسال.</p>
+    </div>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tab-new" aria-selected="true" aria-controls="form-new">عميل جديد</button>
+      <button type="button" role="tab" id="tab-tx" aria-selected="false" aria-controls="form-tx">معاملة</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-hd">
+        <h2>البيانات</h2>
+        <div class="btnbar">
+          <button type="button" class="btn sm" id="btn-clear">تفريغ الحقول</button>
+          <button type="button" class="btn sm" id="btn-example">بيانات المثال</button>
+        </div>
+      </div>
+      <div class="panel-bd">
+        <div class="note" id="example-note">معروض الآن مثال جاهز للتجربة — اضغط «تفريغ الحقول» قبل ما تكتب بيانات عميل حقيقي.</div>
+
+        <details class="settings" id="import-box">
+          <summary>استيراد بلزقة واحدة</summary>
+          <div class="settings-bd">
+            <label class="f" for="imp-text">الصق البيانات هنا — سطر لكل بند بالشكل <span style="font-weight:500">المسمى: القيمة</span>
+              <textarea id="imp-text" spellcheck="false" style="min-height:130px" placeholder="رقم العميل: 1263&#10;كود المعاملة: 113&#10;رقم المعاملة: 1&#10;اسم العميل: خالد سمير&#10;تبع: المهندس سامي&#10;الأكونت مانجر: الأستاذ كريم&#10;هاتف: 0500000000&#10;جنيه: 69500&#10;ريال: 5005.87&#10;الإجمالي: 20000&#10;الملاك:&#10;خالد سمير 99%&#10;زوجته 1%"></textarea>
+              <span class="hint">المسميات المفهومة: رقم العميل، كود المعاملة، رقم المعاملة، اسم العميل، نوع العميل، تبع، الأكونت مانجر، هاتف، جنيه، ريال، الإجمالي، مكسبنا، نوع المعاملة، المفوض، ملاحظات. وأقسام بتاخد أسطر تحتها: الملاك، الأنشطة، الإدارة في مصر، الإدارة في المملكة.</span>
+            </label>
+            <div class="btnbar">
+              <button type="button" class="btn sm primary" id="btn-import">املأ الحقول</button>
+              <span class="hint" id="imp-hint">خانات «أعد كتابة المبلغ» مش بتتملى من الاستيراد — دي بتتكتب بإيدك من الصورة عشان تمسك غلطة القراءة.</span>
+            </div>
+          </div>
+        </details>
+
+        <details class="settings" id="settings">
+          <summary>الدليل: الأسماء والإيميلات وأكواد المعاملات</summary>
+          <div class="settings-bd">
+            <label class="f" for="dir-people">الأسماء والإيميلات — سطر لكل شخص: <span style="font-weight:500">الاسم ، الإيميل ، الدور (مسؤول / نسخة)</span>
+              <textarea id="dir-people" spellcheck="false" style="min-height:110px"></textarea>
+              <span class="hint">انسخ الأعمدة من الإكسل والصقها هنا مباشرة — الأداة تقرأ الفاصلة والتاب.</span>
+            </label>
+            <label class="f" for="dir-codes">أكواد المعاملات — سطر لكل كود: <span style="font-weight:500">الكود ، الوصف ، النوع (عميل جديد / معاملة)</span>
+              <textarea id="dir-codes" spellcheck="false" style="min-height:110px"></textarea>
+              <span class="hint" id="codes-hint"></span>
+            </label>
+            <div class="btnbar">
+              <button type="button" class="btn sm primary" id="btn-dir-save">حفظ الدليل</button>
+              <button type="button" class="btn sm" id="btn-dir-reset">استرجاع الافتراضي</button>
+            </div>
+          </div>
+        </details>
+
+        <fieldset>
+          <legend>كود الموضوع</legend>
+          <div class="row code">
+            <label class="f" for="c-client">رقم العميل
+              <input id="c-client" inputmode="numeric" placeholder="666" autocomplete="off">
+            </label>
+            <label class="f" for="c-code">كود المعاملة
+              <input id="c-code" inputmode="numeric" placeholder="120" list="codes-list" autocomplete="off">
+              <span class="hint" id="c-code-hint"></span>
+            </label>
+            <label class="f" for="c-seq">رقم المعاملة
+              <input id="c-seq" inputmode="numeric" placeholder="2" autocomplete="off">
+            </label>
+          </div>
+          <datalist id="codes-list"></datalist>
+        </fieldset>
+
+        <fieldset>
+          <legend>المرسل إليهم</legend>
+          <div class="row">
+            <label class="f" for="to">To
+              <input id="to" placeholder="person1@example.com" list="emails-list" autocomplete="off">
+              <span class="hint" id="to-hint"></span>
+            </label>
+            <label class="f" for="cc">Cc
+              <input id="cc" placeholder="crm@example.com; finance@example.com" autocomplete="off">
+              <span class="hint"><button type="button" class="btn sm" id="btn-cc-default" style="padding:2px 8px">النسخة الافتراضية</button></span>
+            </label>
+          </div>
+          <datalist id="emails-list"></datalist>
+          <datalist id="people-list"></datalist>
+        </fieldset>
+
+        <div id="form-new" role="tabpanel" aria-labelledby="tab-new" style="display:flex;flex-direction:column;gap:16px">
+          <fieldset>
+            <legend>تعريف العميل</legend>
+            <div class="row">
+              <label class="f" for="n-client">اسم العميل
+                <input id="n-client" autocomplete="off">
+              </label>
+              <label class="f" for="n-type">نوع العميل
+                <select id="n-type">
+                  <option>عميل خدمي VIP</option>
+                  <option>عميل خدمي</option>
+                  <option>عميل تجاري VIP</option>
+                  <option>عميل تجاري</option>
+                  <option>عميل تأسيس VIP</option>
+                  <option>عميل تأسيس</option>
+                </select>
+              </label>
+              <label class="f" for="n-owner">تبع
+                <input id="n-owner" placeholder="المهندس سامي" list="people-list" autocomplete="off">
+              </label>
+              <label class="f" for="n-am">الأكونت مانجر
+                <input id="n-am" placeholder="الأستاذ كريم" list="people-list" autocomplete="off">
+              </label>
+              <label class="f" for="n-phone">رقم هاتف العميل
+                <input id="n-phone" inputmode="numeric" autocomplete="off">
+                <span class="hint" id="n-phone-hint"></span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>المبالغ</legend>
+            <div class="row">
+              <label class="f" for="n-egp">المدفوع بالجنيه المصري
+                <input id="n-egp" inputmode="decimal" autocomplete="off">
+                <span class="hint words" id="n-egp-w"></span>
+              </label>
+              <label class="f" for="n-sar">ما يعادله بالريال السعودي
+                <input id="n-sar" inputmode="decimal" autocomplete="off">
+                <span class="hint words" id="n-sar-w"></span>
+              </label>
+              <label class="f" for="n-sar2">أعد كتابة المدفوع بالريال
+                <input id="n-sar2" inputmode="decimal" autocomplete="off">
+                <span class="hint" id="n-sar2-h"></span>
+              </label>
+              <label class="f" for="n-total">إجمالي المبلغ بالريال
+                <input id="n-total" inputmode="decimal" autocomplete="off">
+                <span class="hint words" id="n-total-w"></span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>الملاك وحصص الملكية</legend>
+            <div id="n-owners"></div>
+            <div class="btnbar">
+              <button type="button" class="btn sm" data-add="n-owners">+ إضافة مالك</button>
+              <span class="hint" id="n-shares-h"></span>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>الأنشطة الإضافية في المملكة</legend>
+            <div id="n-acts"></div>
+            <div class="btnbar"><button type="button" class="btn sm" data-add="n-acts">+ إضافة نشاط</button></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>من له حق الإدارة في مصر</legend>
+            <div id="n-mgr-eg"></div>
+            <div class="btnbar"><button type="button" class="btn sm" data-add="n-mgr-eg">+ إضافة اسم</button></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>من له حق الإدارة في المملكة</legend>
+            <div id="n-mgr-sa"></div>
+            <div class="btnbar"><button type="button" class="btn sm" data-add="n-mgr-sa">+ إضافة اسم</button></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>تفاصيل أخرى</legend>
+            <label class="f" for="n-sign">المفوض بالتوقيع
+              <input id="n-sign" autocomplete="off">
+            </label>
+            <label class="f" for="n-notes">ملاحظات ومتطلبات العميل
+              <textarea id="n-notes" placeholder="العميل محاسب ومعه دكتوراه في المحاسبة — يريد شركة نظيفة تمامًا ولها يوزر نيم وباسورد."></textarea>
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>فولدرات العميل على الدرايف</legend>
+            <label class="f" for="fld-base">المسار الأساسي — فولدر database
+              <input id="fld-base" spellcheck="false" dir="ltr" style="text-align:left" autocomplete="off">
+            </label>
+            <div id="fld-subs"></div>
+            <div class="btnbar">
+              <button type="button" class="btn sm" data-add="fld-subs">+ إضافة فولدر</button>
+              <span class="hint">لفولدر جوه فولدر اكتبه كده: <span dir="ltr">مصر\المستندات</span></span>
+            </div>
+            <div class="note" id="fld-preview" dir="ltr" style="text-align:left; font-size:12px"></div>
+            <div class="btnbar">
+              <button type="button" class="btn primary sm" id="btn-mkdir">أنشئ الفولدرات</button>
+              <button type="button" class="btn sm" id="btn-ps">نسخ أمر PowerShell</button>
+            </div>
+            <span class="hint" id="fld-hint"></span>
+          </fieldset>
+        </div>
+
+        <div id="form-tx" role="tabpanel" aria-labelledby="tab-tx" style="display:none;flex-direction:column;gap:16px">
+          <fieldset>
+            <legend>تعريف المعاملة</legend>
+            <div class="row">
+              <label class="f" for="t-kind">نوع المعاملة
+                <input id="t-kind" placeholder="معاملة تعقيب في المملكة" autocomplete="off">
+              </label>
+              <label class="f" for="t-owner">تبع
+                <input id="t-owner" placeholder="الأستاذ طارق" list="people-list" autocomplete="off">
+              </label>
+              <label class="f" for="t-client">اسم العميل
+                <input id="t-client" autocomplete="off">
+              </label>
+              <label class="f" for="t-phone">رقم هاتف العميل
+                <input id="t-phone" inputmode="numeric" autocomplete="off">
+                <span class="hint" id="t-phone-hint"></span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>المبالغ</legend>
+            <div class="row">
+              <label class="f" for="t-paid">المدفوع بالريال (إجمالي المعاملة)
+                <input id="t-paid" inputmode="decimal" autocomplete="off">
+                <span class="hint words" id="t-paid-w"></span>
+              </label>
+              <label class="f" for="t-paid2">أعد كتابة المبلغ
+                <input id="t-paid2" inputmode="decimal" autocomplete="off">
+                <span class="hint" id="t-paid2-h"></span>
+              </label>
+              <label class="f" for="t-profit">مكسبنا بالريال
+                <input id="t-profit" inputmode="decimal" autocomplete="off">
+                <span class="hint words" id="t-profit-w"></span>
+              </label>
+            </div>
+            <label class="f" for="t-notes">ملاحظات (اختياري)
+              <textarea id="t-notes"></textarea>
+            </label>
+          </fieldset>
+        </div>
+      </div>
+    </div>
+
+    <div class="sticky" style="display:flex;flex-direction:column;gap:16px">
+      <div class="panel" id="img-panel">
+        <div class="panel-hd">
+          <h2>صورة الواتساب</h2>
+          <div class="btnbar">
+            <button type="button" class="btn sm" id="btn-img-add">اختر صورة</button>
+            <button type="button" class="btn sm" id="btn-img-clear">مسح الكل</button>
+          </div>
+        </div>
+        <div class="panel-bd">
+          <div class="note" id="img-empty">الصق الصورة بـ Ctrl+V في أي مكان في الصفحة، أو اسحبها وارميها هنا. الصور بتفضل على جهازك وبتتمسح لما تقفل الصفحة — متترفعش لأي مكان.</div>
+          <div id="img-stage" hidden><img id="img-big" alt="صورة بيانات العميل"></div>
+          <div id="img-thumbs" class="thumbs"></div>
+          <span class="hint" id="img-hint"></span>
+        </div>
+        <input type="file" id="img-file" accept="image/*" multiple hidden>
+      </div>
+
+      <div class="panel">
+        <div class="panel-hd">
+          <h2>التدقيق</h2>
+          <span id="verdict" class="status ok">جاهز</span>
+        </div>
+        <div class="panel-bd">
+          <div class="checks" id="checks"></div>
+          <label class="ack" id="ack-wrap" hidden>
+            <input type="checkbox" id="ack"> راجعت التنبيهات أعلاه وأؤكد أن البيانات صحيحة
+          </label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-hd">
+          <h2>معاينة الإيميل</h2>
+          <div class="btnbar">
+            <button type="button" class="btn sm" id="btn-copy-subj">نسخ الموضوع</button>
+            <button type="button" class="btn sm" id="btn-copy">نسخ النص</button>
+          </div>
+        </div>
+        <dl class="mailhead">
+          <dt>To</dt><dd id="pv-to">—</dd>
+          <dt>Cc</dt><dd id="pv-cc">—</dd>
+          <dt>Subject</dt><dd class="subject" id="pv-subj">—</dd>
+        </dl>
+        <pre class="body" id="pv-body"></pre>
+        <div class="sendbar">
+          <button type="button" class="btn primary" id="btn-outlook">تم — افتح في أوتلوك</button>
+          <button type="button" class="btn" id="btn-eml">تنزيل مسودة ‎.eml</button>
+          <span class="hint" id="send-hint" style="flex:1 1 100%"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- إعدادات محلية اختيارية: الأسماء والإيميلات ومسار الدرايف الحقيقي.
+     الملف ده في .gitignore ومش بيترفع. لو مش موجود الأداة بتشتغل ببيانات نموذجية. -->
+<script src="config.local.js" onerror="void 0"></script>
+
+<script>
+"use strict";
+var $ = function(id){ return document.getElementById(id); };
+var mode = "new";
+/* التنزيل ممنوع جوه إطار المشاركة؛ شغّال في الملف المحلي وعلى GitHub Pages */
+var IS_LOCAL = (window.top === window.self) || location.protocol === "file:";
+
+/* ================= الدليل ================= */
+/* البيانات الحقيقية بتتحط في config.local.js — الملف ده مش بيترفع على GitHub.
+   شوف config.example.js و README.md. من غيره الأداة بتشتغل ببيانات نموذجية،
+   وتقدر تلزق دليلك في لوحة «الدليل» وهيتحفظ على متصفحك. */
+var CFG = window.ELLWAA_CONFIG || {};
+var DEFAULT_PEOPLE = CFG.people || [
+  { name:"المسؤول الأول", email:"person1@example.com", role:"مسؤول" },
+  { name:"المسؤول الثاني", email:"person2@example.com", role:"مسؤول" },
+  { name:"CRM",           email:"crm@example.com",     role:"نسخة" },
+  { name:"المالية",       email:"finance@example.com", role:"نسخة" },
+  { name:"التنفيذ",       email:"exp@example.com",     role:"نسخة" }
+];
+var DEFAULT_CODES = CFG.codes || [
+  { code:"113", desc:"عميل جديد خدمي",   kind:"عميل جديد" },
+  { code:"120", desc:"تعقيب في المملكة", kind:"معاملة" }
+];
+var people = DEFAULT_PEOPLE.slice(), codes = DEFAULT_CODES.slice();
+
+function parseRows(text, keys){
+  var out = [];
+  String(text).split(/\r?\n/).forEach(function(line){
+    if(!line.trim()) return;
+    var cells = line.split(/\t|,|،|;/).map(function(c){ return c.trim(); });
+    if(!cells[0]) return;
+    var o = {};
+    keys.forEach(function(k, i){ o[k] = cells[i] || ""; });
+    out.push(o);
+  });
+  return out;
+}
+function peopleToText(list){ return list.map(function(p){ return [p.name, p.email, p.role].join("، "); }).join("\n"); }
+function codesToText(list){ return list.map(function(c){ return [c.code, c.desc, c.kind].join("، "); }).join("\n"); }
+
+function applyDirectory(){
+  var el = $("emails-list"); el.innerHTML = "";
+  var pl = $("people-list"); pl.innerHTML = "";
+  people.forEach(function(p){
+    if(p.email){
+      var o = document.createElement("option");
+      o.value = p.email; o.label = p.name; el.appendChild(o);
+    }
+    if(p.name){
+      var o2 = document.createElement("option");
+      o2.value = p.name; pl.appendChild(o2);
+    }
+  });
+  var cl = $("codes-list"); cl.innerHTML = "";
+  codes.forEach(function(c){
+    var o = document.createElement("option");
+    o.value = c.code; o.label = c.desc; cl.appendChild(o);
+  });
+  $("codes-hint").textContent = codes.length + " كود محمّل. الكودات الافتراضية مستنتجة من إيميلاتك — استبدلها بالشيت الرسمي.";
+}
+function defaultCc(){
+  return people.filter(function(p){ return p.role.indexOf("نسخة") > -1 && p.email; })
+               .map(function(p){ return p.email; }).join("; ");
+}
+function findCode(c){
+  c = String(c).trim();
+  for(var i = 0; i < codes.length; i++) if(codes[i].code === c) return codes[i];
+  return null;
+}
+function findPersonByName(n){
+  n = String(n).trim();
+  if(!n) return null;
+  for(var i = 0; i < people.length; i++){
+    if(!people[i].name) continue;
+    if(n === people[i].name || n.indexOf(people[i].name) > -1) return people[i];
+  }
+  return null;
+}
+
+/* ================= أرقام ================= */
+function num(v){
+  if(v === null || v === undefined) return NaN;
+  var s = String(v).replace(/[٠-٩]/g, function(d){ return String(d.charCodeAt(0) - 1632); })
+                   .replace(/[,\s%]/g, "").trim();
+  if(s === "") return NaN;
+  return Number(s);
+}
+function fmt(n){
+  if(!isFinite(n)) return "";
+  var d = Math.abs(n % 1) > 1e-9 ? 2 : 0;
+  return n.toLocaleString("en-US", { minimumFractionDigits:d, maximumFractionDigits:2 });
+}
+var ONES = ["","واحد","اثنان","ثلاثة","أربعة","خمسة","ستة","سبعة","ثمانية","تسعة","عشرة","أحد عشر","اثنا عشر","ثلاثة عشر","أربعة عشر","خمسة عشر","ستة عشر","سبعة عشر","ثمانية عشر","تسعة عشر"];
+var TENS = ["","","عشرون","ثلاثون","أربعون","خمسون","ستون","سبعون","ثمانون","تسعون"];
+var HUND = ["","مائة","مائتان","ثلاثمائة","أربعمائة","خمسمائة","ستمائة","سبعمائة","ثمانمائة","تسعمائة"];
+function under1000(n){
+  var out = [], h = Math.floor(n / 100), r = n % 100;
+  if(h) out.push(HUND[h]);
+  if(r){
+    if(r < 20) out.push(ONES[r]);
+    else{
+      var u = r % 10, t = Math.floor(r / 10);
+      out.push(u ? ONES[u] + " و" + TENS[t] : TENS[t]);
+    }
+  }
+  return out.join(" و");
+}
+function words(n){
+  if(!isFinite(n)) return "";
+  var neg = n < 0; n = Math.abs(n);
+  var whole = Math.floor(n), frac = Math.round((n - whole) * 100);
+  if(whole > 999999999) return "";
+  var parts = [];
+  var mil = Math.floor(whole / 1000000), rest = whole % 1000000;
+  var th = Math.floor(rest / 1000), u = rest % 1000;
+  if(mil) parts.push(mil === 1 ? "مليون" : mil === 2 ? "مليونان" : (mil < 11 ? under1000(mil) + " ملايين" : under1000(mil) + " مليون"));
+  if(th)  parts.push(th === 1 ? "ألف" : th === 2 ? "ألفان" : (th < 11 ? under1000(th) + " آلاف" : under1000(th) + " ألف"));
+  if(u)   parts.push(under1000(u));
+  var s = parts.length ? parts.join(" و") : "صفر";
+  if(frac) s += " و" + under1000(frac) + " من المائة";
+  return (neg ? "سالب " : "") + s;
+}
+
+/* ================= قوائم ديناميكية ================= */
+function addRow(hostId, v1, v2){
+  var host = $(hostId), pct = (hostId === "n-owners");
+  var row = document.createElement("div");
+  row.className = "listrow";
+  var a = document.createElement("input");
+  a.autocomplete = "off"; a.value = v1 || "";
+  a.placeholder = pct ? "الاسم رباعي" : "اكتب هنا";
+  row.appendChild(a);
+  if(pct){
+    var b = document.createElement("input");
+    b.className = "pct"; b.autocomplete = "off"; b.inputMode = "decimal";
+    b.placeholder = "%"; b.value = (v2 === undefined || v2 === null) ? "" : v2;
+    row.appendChild(b);
+  }
+  var del = document.createElement("button");
+  del.type = "button"; del.className = "btn icon"; del.textContent = "×";
+  del.setAttribute("aria-label", "حذف السطر");
+  del.onclick = function(){ row.remove(); render(); };
+  row.appendChild(del);
+  host.appendChild(row);
+  return row;
+}
+function readList(hostId){
+  var out = [], rows = $(hostId).querySelectorAll(".listrow");
+  for(var i = 0; i < rows.length; i++){
+    var ins = rows[i].querySelectorAll("input");
+    var name = ins[0].value.trim();
+    if(!name) continue;
+    out.push({ name:name, pct: ins.length > 1 ? ins[1].value.trim() : null });
+  }
+  return out;
+}
+function setList(hostId, arr){
+  $(hostId).innerHTML = "";
+  if(!arr || !arr.length) arr = [{ name:"", pct:"" }];
+  for(var i = 0; i < arr.length; i++) addRow(hostId, arr[i].name, arr[i].pct);
+}
+
+/* ================= بناء الإيميل ================= */
+function subjectCode(){
+  return [$("c-client").value.trim(), $("c-code").value.trim(), $("c-seq").value.trim()].filter(Boolean).join("-");
+}
+function numbered(arr, fallbackText){
+  if(!arr.length) return fallbackText ? ("1- " + fallbackText) : "—";
+  return arr.map(function(x, i){ return (i + 1) + "- " + x.name; }).join("\n");
+}
+function buildNew(){
+  var paidEgp = num($("n-egp").value), paidSar = num($("n-sar").value), total = num($("n-total").value);
+  var L = [];
+  L.push([$("n-type").value, $("n-owner").value.trim() ? "تبع " + $("n-owner").value.trim() : ""].filter(Boolean).join(" "));
+  if($("n-am").value.trim()) L.push("الأكونت مانجر: " + $("n-am").value.trim());
+  if($("n-client").value.trim()) L.push("اسم العميل: " + $("n-client").value.trim());
+  L.push("");
+  var money = "العميل دفع ";
+  if(isFinite(paidEgp)) money += fmt(paidEgp) + " جنيه مصري بما يعادل ";
+  money += fmt(paidSar) + " ريال سعودي";
+  if(isFinite(total)) money += " من إجمالي " + fmt(total) + " ريال سعودي";
+  L.push(money);
+  if(isFinite(total) && isFinite(paidSar)) L.push("المتبقي: " + fmt(total - paidSar) + " ريال سعودي");
+  var notes = $("n-notes").value.trim();
+  if(notes){ L.push(""); L.push("ملاحظات العميل:"); L.push(notes); }
+  L.push("");
+  L.push("أسماء الملاك وحصص الملكية:");
+  var ow = readList("n-owners");
+  L.push(ow.length ? ow.map(function(o, i){
+    return (i + 1) + "- " + o.name + "   " + (o.pct ? String(o.pct).replace(/%/g, "") + "%" : "—");
+  }).join("\n") : "—");
+  L.push("");
+  L.push("الأنشطة الإضافية على حسب رغبة العميل:");
+  L.push("        في المملكة:");
+  L.push(numbered(readList("n-acts"), "هيتم تحديدها"));
+  L.push("");
+  L.push("من له حق الإدارة في مصر:");
+  L.push(numbered(readList("n-mgr-eg")));
+  L.push("");
+  L.push("من له حق الإدارة في المملكة:");
+  L.push(numbered(readList("n-mgr-sa")));
+  L.push("");
+  L.push("المفوض بالتوقيع: " + ($("n-sign").value.trim() || "—"));
+  L.push("");
+  L.push("رقم هاتف العميل: " + ($("n-phone").value.trim() || "—"));
+  return L.join("\n");
+}
+function buildTx(){
+  var paid = num($("t-paid").value), profit = num($("t-profit").value);
+  var L = [];
+  L.push([$("t-kind").value.trim(), $("t-owner").value.trim() ? "تبع " + $("t-owner").value.trim() : ""].filter(Boolean).join(" "));
+  L.push("العميل دفع " + fmt(paid) + " ريال سعودي إجمالي المعاملة");
+  if(isFinite(profit)) L.push("مكسبنا: " + fmt(profit) + " ريال سعودي");
+  L.push("");
+  L.push("اسم العميل:");
+  L.push($("t-client").value.trim() || "—");
+  L.push("");
+  L.push("رقم هاتف العميل:");
+  L.push($("t-phone").value.trim() || "—");
+  var n = $("t-notes").value.trim();
+  if(n){ L.push(""); L.push("ملاحظات:"); L.push(n); }
+  return L.join("\n");
+}
+
+/* ================= التدقيق ================= */
+function checkPhone(v, hintId){
+  var digits = String(v).replace(/\D/g, ""), h = $(hintId);
+  if(!v.trim()){ h.textContent = ""; return { ok:false, empty:true, len:0 }; }
+  h.textContent = digits.length + " رقم";
+  return { ok: digits.length >= 9 && digits.length <= 15, empty:false, len:digits.length };
+}
+function dbl(aId, bId, hintId){
+  var a = num($(aId).value), b = num($(bId).value), h = $(hintId), el = $(bId);
+  el.classList.remove("bad", "good");
+  h.style.color = "";
+  if(!isFinite(a) || $(bId).value.trim() === ""){ h.textContent = ""; return null; }
+  if(Math.abs(a - b) < 1e-9){
+    h.textContent = "مطابق ✓"; h.style.color = "var(--ok)"; el.classList.add("good"); return true;
+  }
+  h.textContent = "غير مطابق"; h.style.color = "var(--err)"; el.classList.add("bad"); return false;
+}
+
+function validate(){
+  var out = [];
+
+  /* --- كود الموضوع --- */
+  var cNum = $("c-client").value.trim(), cCode = $("c-code").value.trim(), cSeq = $("c-seq").value.trim();
+  var hit = cCode ? findCode(cCode) : null;
+  var ch = $("c-code-hint"); ch.style.color = "";
+  if(!cCode){ ch.textContent = ""; }
+  else if(hit){ ch.textContent = hit.desc; ch.style.color = "var(--ok)"; }
+  else { ch.textContent = "كود غير موجود في الدليل"; ch.style.color = "var(--warn)"; }
+
+  if(!cNum) out.push(["err", "رقم العميل في كود الموضوع مطلوب"]);
+  else if(!/^\d+$/.test(cNum)) out.push(["warn", "رقم العميل فيه حروف أو رموز"]);
+  if(!cCode) out.push(["err", "كود المعاملة مطلوب"]);
+  else if(!hit) out.push(["warn", "الكود " + cCode + " مش في الدليل — تأكد منه أو ضيفه في لوحة الدليل"]);
+  else{
+    var wantKind = mode === "new" ? "عميل جديد" : "معاملة";
+    if(hit.kind && hit.kind !== wantKind)
+      out.push(["err", "الكود " + cCode + " (" + hit.desc + ") نوعه «" + hit.kind + "» وأنت في تبويب «" + (mode === "new" ? "عميل جديد" : "معاملة") + "»"]);
+    else out.push(["ok", "الكود " + cCode + " = " + hit.desc]);
+  }
+  if(!cSeq) out.push(["warn", "رقم المعاملة (الجزء الأخير) فاضي"]);
+
+  /* --- المرسل إليهم --- */
+  var toVal = $("to").value.trim();
+  if(!toVal) out.push(["err", "خانة To فاضية"]);
+  else if(!/^[^@\s]+@[^@\s]+\.[^@\s]+/.test(toVal)) out.push(["err", "إيميل To شكله غير صحيح"]);
+  var ccVal = $("cc").value.trim();
+  if(ccVal){
+    var bad = ccVal.split(/[;,]/).map(function(s){ return s.trim(); }).filter(Boolean)
+                   .filter(function(s){ return !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s); });
+    if(bad.length) out.push(["err", "إيميل غير صحيح في Cc: " + bad[0]]);
+  } else out.push(["warn", "خانة Cc فاضية"]);
+
+  if(mode === "tx"){
+    var owner = $("t-owner").value.trim(), person = findPersonByName(owner);
+    if(person && person.email && toVal && toVal.toLowerCase().indexOf(person.email.toLowerCase()) === -1)
+      out.push(["warn", "المعاملة تبع " + person.name + " لكن To مش إيميله (" + person.email + ")"]);
+
+    var paid = num($("t-paid").value), profit = num($("t-profit").value);
+    $("t-paid-w").textContent = isFinite(paid) ? words(paid) + " ريال" : "";
+    $("t-profit-w").textContent = isFinite(profit) ? words(profit) + " ريال" : "";
+    var m = dbl("t-paid", "t-paid2", "t-paid2-h");
+
+    if(!$("t-kind").value.trim()) out.push(["err", "نوع المعاملة مطلوب"]);
+    if(!owner) out.push(["err", "اسم المسؤول (تبع) مطلوب"]);
+    if(!$("t-client").value.trim()) out.push(["err", "اسم العميل مطلوب"]);
+    if(!isFinite(paid)) out.push(["err", "المبلغ المدفوع مطلوب"]);
+    else if(paid <= 0) out.push(["err", "المبلغ المدفوع لازم يكون أكبر من صفر"]);
+
+    if(m === false) out.push(["err", "المبلغ المكتوب مرتين غير مطابق — راجع أيهما الصحيح"]);
+    else if(m === true) out.push(["ok", "المبلغ اتأكد بكتابته مرتين"]);
+    else if(isFinite(paid)) out.push(["warn", "أعد كتابة المبلغ في خانة التأكيد"]);
+
+    if(isFinite(profit) && isFinite(paid)){
+      if(profit > paid) out.push(["err", "المكسب (" + fmt(profit) + ") أكبر من إجمالي المعاملة (" + fmt(paid) + ")"]);
+      else if(profit < 0) out.push(["err", "المكسب بالسالب"]);
+      else if(profit === 0) out.push(["warn", "المكسب صفر — متأكد؟"]);
+      else out.push(["ok", "التكلفة على الشركة: " + fmt(paid - profit) + " ريال"]);
+    } else if(!isFinite(profit)) out.push(["warn", "خانة المكسب فاضية"]);
+
+    var p = checkPhone($("t-phone").value, "t-phone-hint");
+    if(p.empty) out.push(["err", "رقم هاتف العميل مطلوب"]);
+    else if(!p.ok) out.push(["err", "رقم الهاتف طوله " + p.len + " رقم — راجعه"]);
+  } else {
+    var nowner = $("n-owner").value.trim(), nperson = findPersonByName(nowner);
+    if(nperson && nperson.email && toVal && toVal.toLowerCase().indexOf(nperson.email.toLowerCase()) === -1)
+      out.push(["warn", "العميل تبع " + nperson.name + " لكن To مش إيميله (" + nperson.email + ")"]);
+
+    var egp = num($("n-egp").value), sar = num($("n-sar").value), total = num($("n-total").value);
+    $("n-egp-w").textContent = isFinite(egp) ? words(egp) + " جنيه" : "";
+    $("n-sar-w").textContent = isFinite(sar) ? words(sar) + " ريال" : "";
+    $("n-total-w").textContent = isFinite(total) ? words(total) + " ريال" : "";
+    var m2 = dbl("n-sar", "n-sar2", "n-sar2-h");
+
+    if(!$("n-client").value.trim()) out.push(["err", "اسم العميل مطلوب"]);
+    if(!nowner) out.push(["err", "اسم المسؤول (تبع) مطلوب"]);
+    if(!$("n-am").value.trim()) out.push(["warn", "الأكونت مانجر غير محدد"]);
+    if(!isFinite(sar)) out.push(["err", "المدفوع بالريال مطلوب"]);
+
+    if(m2 === false) out.push(["err", "المدفوع بالريال المكتوب مرتين غير مطابق"]);
+    else if(m2 === true) out.push(["ok", "المدفوع بالريال اتأكد بكتابته مرتين"]);
+    else if(isFinite(sar)) out.push(["warn", "أعد كتابة المدفوع بالريال في خانة التأكيد"]);
+
+    if(!isFinite(total)) out.push(["err", "إجمالي المبلغ بالريال مطلوب"]);
+    else if(isFinite(sar)){
+      if(sar > total) out.push(["err", "المدفوع (" + fmt(sar) + ") أكبر من الإجمالي (" + fmt(total) + ")"]);
+      else out.push(["ok", "المتبقي على العميل: " + fmt(total - sar) + " ريال"]);
+    }
+
+    if(isFinite(egp) && isFinite(sar) && sar > 0){
+      var rate = egp / sar;
+      if(rate < 8 || rate > 30) out.push(["err", "سعر التحويل الناتج " + rate.toFixed(2) + " جنيه/ريال — رقم غير منطقي، راجع المبلغين"]);
+      else out.push(["ok", "سعر التحويل: " + rate.toFixed(3) + " جنيه لكل ريال"]);
+    }
+
+    var ow = readList("n-owners"), sum = 0, missing = 0;
+    for(var i = 0; i < ow.length; i++){
+      var v = num(ow[i].pct);
+      if(isFinite(v)) sum += v; else missing++;
+    }
+    var sh = $("n-shares-h"); sh.style.color = "";
+    if(!ow.length){ out.push(["err", "لازم مالك واحد على الأقل"]); sh.textContent = ""; }
+    else if(missing){
+      out.push(["err", "في " + missing + " مالك بدون نسبة ملكية"]);
+      sh.textContent = "مجموع النسب المكتوبة: " + fmt(sum) + "%"; sh.style.color = "var(--err)";
+    }
+    else if(Math.abs(sum - 100) > 1e-9){
+      out.push(["err", "مجموع حصص الملكية " + fmt(sum) + "% وليس 100%"]);
+      sh.textContent = "المجموع: " + fmt(sum) + "%"; sh.style.color = "var(--err)";
+    }
+    else{
+      out.push(["ok", "حصص الملكية مضبوطة = 100%"]);
+      sh.textContent = "المجموع: 100%"; sh.style.color = "var(--ok)";
+    }
+
+    if(!readList("n-mgr-eg").length) out.push(["err", "من له حق الإدارة في مصر مطلوب"]);
+    if(!readList("n-mgr-sa").length) out.push(["err", "من له حق الإدارة في المملكة مطلوب"]);
+    if(!$("n-sign").value.trim()) out.push(["err", "المفوض بالتوقيع مطلوب"]);
+    if(!readList("n-acts").length) out.push(["warn", "لم تُحدَّد أنشطة إضافية — هيتكتب «هيتم تحديدها»"]);
+
+    var p2 = checkPhone($("n-phone").value, "n-phone-hint");
+    if(p2.empty) out.push(["err", "رقم هاتف العميل مطلوب"]);
+    else if(!p2.ok) out.push(["err", "رقم الهاتف طوله " + p2.len + " رقم — راجعه"]);
+  }
+  return out;
+}
+
+/* ================= أوتلوك ================= */
+function mailParts(){
+  return {
+    to: $("to").value.trim(),
+    cc: $("cc").value.trim(),
+    subject: $("pv-subj").textContent,
+    body: $("pv-body").textContent
+  };
+}
+function openOutlook(){
+  var m = mailParts();
+  var url = "mailto:" + encodeURIComponent(m.to)
+          + "?subject=" + encodeURIComponent(m.subject)
+          + (m.cc ? "&cc=" + encodeURIComponent(m.cc) : "")
+          + "&body=" + encodeURIComponent(m.body.replace(/\n/g, "\r\n"));
+  if(url.length > 1900){
+    toast("النص طويل على رابط أوتلوك — استخدم «تنزيل مسودة ‎.eml»");
+    return;
+  }
+  var a = document.createElement("a");
+  a.href = url; a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  toast("جارٍ فتح أوتلوك…");
+}
+function b64utf8(str){
+  var bytes = new TextEncoder().encode(str), bin = "";
+  for(var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function wrap76(s){ return s.replace(/(.{76})/g, "$1\r\n"); }
+function downloadEml(){
+  var m = mailParts();
+  var eml = [
+    "X-Unsent: 1",
+    "To: " + m.to,
+    m.cc ? "Cc: " + m.cc : null,
+    "Subject: =?UTF-8?B?" + b64utf8(m.subject) + "?=",
+    "MIME-Version: 1.0",
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: base64",
+    "",
+    wrap76(b64utf8(m.body.replace(/\n/g, "\r\n")))
+  ].filter(function(x){ return x !== null; }).join("\r\n");
+
+  var blob = new Blob([eml], { type:"message/rfc822" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = (subjectCode() || "draft") + ".eml";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+  toast("نزّل الملف — افتحه بدبل كليك يفتح كمسودة في أوتلوك");
+}
+
+/* ================= الفولدرات ================= */
+var FLD_BASE_DEFAULT = CFG.basePath || "G:\\shared-drive\\database";
+var baseHandle = null;
+var HAS_FSA = (typeof window.showDirectoryPicker === "function");
+
+function idbKV(mode, key, val){
+  return new Promise(function(res){
+    try{
+      var req = indexedDB.open("ellwaa-tool", 1);
+      req.onupgradeneeded = function(){ req.result.createObjectStore("kv"); };
+      req.onerror = function(){ res(null); };
+      req.onsuccess = function(){
+        try{
+          var tx = req.result.transaction("kv", mode === "get" ? "readonly" : "readwrite");
+          var st = tx.objectStore("kv");
+          var r = mode === "get" ? st.get(key) : st.put(val, key);
+          r.onsuccess = function(){ res(mode === "get" ? (r.result || null) : true); };
+          r.onerror = function(){ res(null); };
+        }catch(e){ res(null); }
+      };
+    }catch(e){ res(null); }
+  });
+}
+function cleanSeg(s){ return String(s).replace(/[<>:"|?*]/g, "").trim(); }
+function folderParts(){
+  var client = $("c-client").value.trim(), code = subjectCode();
+  if(!client || !code) return null;
+  var subs = readList("fld-subs").map(function(x){ return x.name; });
+  var chains = [];
+  if(!subs.length) chains.push([client, code]);
+  else subs.forEach(function(s){
+    var extra = String(s).split(/[\\/]+/).map(cleanSeg).filter(Boolean);
+    chains.push([client, code].concat(extra));
+  });
+  return { client:client, code:code, chains:chains };
+}
+function folderPaths(){
+  var p = folderParts();
+  if(!p) return [];
+  var base = $("fld-base").value.trim().replace(/[\\/]+$/, "");
+  return p.chains.map(function(ch){ return base + "\\" + ch.join("\\"); });
+}
+function renderFolders(){
+  var p = folderParts(), box = $("fld-preview");
+  if(!p){ box.textContent = "املأ رقم العميل وكود المعاملة الأول."; return; }
+  box.textContent = p.chains.map(function(ch){ return "…\\database\\" + ch.join("\\"); }).join("\n");
+  box.style.whiteSpace = "pre-wrap";
+}
+async function verifyPerm(h){
+  try{
+    var o = { mode:"readwrite" };
+    if((await h.queryPermission(o)) === "granted") return true;
+    return (await h.requestPermission(o)) === "granted";
+  }catch(e){ return false; }
+}
+async function getBase(repick){
+  if(!repick){
+    if(baseHandle && await verifyPerm(baseHandle)) return baseHandle;
+    var stored = await idbKV("get", "baseDir");
+    if(stored && await verifyPerm(stored)){ baseHandle = stored; return stored; }
+  }
+  var h = await window.showDirectoryPicker({ mode:"readwrite", id:"ellwaa-database" });
+  baseHandle = h;
+  idbKV("put", "baseDir", h);
+  return h;
+}
+async function ensureChain(root, parts){
+  var cur = root, made = [];
+  for(var i = 0; i < parts.length; i++){
+    var existed = true;
+    try{ await cur.getDirectoryHandle(parts[i]); }
+    catch(e){ existed = false; }
+    cur = await cur.getDirectoryHandle(parts[i], { create:true });
+    if(!existed) made.push(parts[i]);
+  }
+  return made;
+}
+async function makeFolders(){
+  var p = folderParts(), h = $("fld-hint");
+  h.style.color = "";
+  if(!p){ h.textContent = "محتاج رقم العميل وكود المعاملة كاملين."; h.style.color = "var(--err)"; return; }
+  if(!HAS_FSA){
+    h.textContent = "المتصفح ده مبيدعمش إنشاء الفولدرات — استخدم «نسخ أمر PowerShell»، أو افتح الملف بـ Chrome أو Edge.";
+    h.style.color = "var(--warn)";
+    return;
+  }
+  try{
+    var root = await getBase(false);
+    var made = 0, all = 0;
+    for(var i = 0; i < p.chains.length; i++){
+      var m = await ensureChain(root, p.chains[i]);
+      made += m.length; all++;
+    }
+    h.style.color = "var(--ok)";
+    h.textContent = made
+      ? "اتعمل " + made + " فولدر جديد تحت « " + root.name + " »."
+      : "كل الفولدرات موجودة قبل كده تحت « " + root.name + " » — مفيش حاجة اتغيرت.";
+    toast(made ? "الفولدرات اتعملت" : "الفولدرات موجودة بالفعل");
+  }catch(e){
+    if(e && e.name === "AbortError"){ h.textContent = "اتلغى اختيار الفولدر."; return; }
+    h.style.color = "var(--err)";
+    h.textContent = "مقدرتش أكتب على الفولدر: " + (e && e.message ? e.message : e) + " — استخدم أمر PowerShell.";
+  }
+}
+function psCommand(){
+  var paths = folderPaths();
+  if(!paths.length) return "";
+  return "New-Item -ItemType Directory -Force -Path " +
+         paths.map(function(p){ return '"' + p + '"'; }).join(",") + " | Out-Null";
+}
+
+/* ================= صور الواتساب ================= */
+var shots = [], shotIdx = 0;
+function renderShots(){
+  var th = $("img-thumbs");
+  th.innerHTML = "";
+  $("img-empty").hidden = shots.length > 0;
+  $("img-stage").hidden = shots.length === 0;
+  if(!shots.length){ $("img-hint").textContent = ""; return; }
+  if(shotIdx >= shots.length) shotIdx = shots.length - 1;
+  $("img-big").src = shots[shotIdx].url;
+  shots.forEach(function(s, i){
+    var w = document.createElement("div");
+    w.className = "thumbwrap";
+    var im = document.createElement("img");
+    im.src = s.url; im.alt = "صورة " + (i + 1);
+    if(i === shotIdx) im.className = "on";
+    im.onclick = function(){ shotIdx = i; renderShots(); };
+    var x = document.createElement("button");
+    x.type = "button"; x.textContent = "\u00D7";
+    x.setAttribute("aria-label", "حذف الصورة");
+    x.onclick = function(ev){
+      ev.stopPropagation();
+      URL.revokeObjectURL(s.url);
+      shots.splice(i, 1);
+      renderShots();
+    };
+    w.appendChild(im); w.appendChild(x);
+    th.appendChild(w);
+  });
+  $("img-hint").textContent = shots.length + " صورة — اضغط على الصورة الكبيرة للتكبير.";
+}
+function addShot(file){
+  if(!file || file.type.indexOf("image/") !== 0) return;
+  shots.push({ url: URL.createObjectURL(file) });
+  shotIdx = shots.length - 1;
+  renderShots();
+}
+
+/* ================= الاستيراد بلزقة ================= */
+function norm(s){
+  return String(s).replace(/[\u064B-\u0652\u0640]/g, "")
+                  .replace(/[أإآ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي")
+                  .replace(/\s+/g, " ").trim().toLowerCase();
+}
+function digitsOf(s){
+  return String(s).replace(/[\u0660-\u0669]/g, function(d){ return String(d.charCodeAt(0) - 1632); })
+                  .replace(/\D/g, "");
+}
+function numStr(s){
+  var m = String(s).replace(/[\u0660-\u0669]/g, function(d){ return String(d.charCodeAt(0) - 1632); })
+                   .replace(/,/g, "").match(/-?\d+(\.\d+)?/);
+  return m ? m[0] : "";
+}
+var FIELD_KEYS = [
+  { k:["رقم العميل"],                       set:function(v){ $("c-client").value = digitsOf(v); } },
+  { k:["كود المعامله","الكود"],              set:function(v){ $("c-code").value = digitsOf(v); } },
+  { k:["رقم المعامله","التسلسل"],            set:function(v){ $("c-seq").value = digitsOf(v); } },
+  { k:["اسم العميل","العميل"],               set:function(v){ $("n-client").value = v; $("t-client").value = v; } },
+  { k:["نوع العميل"],                       set:function(v){
+      var sel = $("n-type"), t = norm(v);
+      for(var i = 0; i < sel.options.length; i++) if(norm(sel.options[i].text) === t){ sel.selectedIndex = i; return; }
+    } },
+  { k:["نوع المعامله"],                      set:function(v){ $("t-kind").value = v; } },
+  { k:["تبع","المسئول","المسؤول"],           set:function(v){ $("n-owner").value = v; $("t-owner").value = v; } },
+  { k:["الاكونت مانجر","اكونت مانجر"],       set:function(v){ $("n-am").value = v; } },
+  { k:["هاتف","رقم هاتف العميل","الهاتف","تليفون","الجوال","الموبايل"],
+                                             set:function(v){ $("n-phone").value = digitsOf(v); $("t-phone").value = digitsOf(v); } },
+  { k:["جنيه","المدفوع بالجنيه","بالجنيه"],   set:function(v){ $("n-egp").value = numStr(v); } },
+  { k:["ريال","المدفوع بالريال","بالريال"],   set:function(v){ $("n-sar").value = numStr(v); $("t-paid").value = numStr(v); } },
+  { k:["الاجمالي","اجمالي","الاجمالي بالريال"], set:function(v){ $("n-total").value = numStr(v); } },
+  { k:["مكسبنا","المكسب","الربح"],           set:function(v){ $("t-profit").value = numStr(v); } },
+  { k:["المفوض بالتوقيع","المفوض"],          set:function(v){ $("n-sign").value = v; } },
+  { k:["ملاحظات","ملاحظات العميل"],          set:function(v){ $("n-notes").value = v; } }
+];
+var SECTION_KEYS = [
+  { k:["الملاك","اسماء الملاك","اسماء الملاك وحصص الملكيه"], host:"n-owners", pct:true },
+  { k:["الانشطه","الانشطه الاضافيه"],                        host:"n-acts" },
+  { k:["الاداره في مصر","من له حق الاداره في مصر","مصر"],     host:"n-mgr-eg" },
+  { k:["الاداره في المملكه","من له حق الاداره في المملكه","المملكه","السعوديه"], host:"n-mgr-sa" }
+];
+function matchKey(list, key){
+  var n = norm(key);
+  for(var i = 0; i < list.length; i++)
+    for(var j = 0; j < list[i].k.length; j++)
+      if(norm(list[i].k[j]) === n) return list[i];
+  return null;
+}
+function runImport(){
+  var lines = $("imp-text").value.split(/\r?\n/);
+  var filled = 0, buckets = {}, section = null;
+
+  lines.forEach(function(raw){
+    var line = raw.trim();
+    if(!line) return;
+    var m = line.match(/^([^:：]{1,40})[:：]\s*(.*)$/);
+    if(m){
+      var sec = matchKey(SECTION_KEYS, m[1]);
+      if(sec){
+        section = sec;
+        buckets[sec.host] = buckets[sec.host] || [];
+        if(m[2].trim()) buckets[sec.host].push(m[2].trim());
+        return;
+      }
+      var fk = matchKey(FIELD_KEYS, m[1]);
+      if(fk){ section = null; fk.set(m[2].trim()); filled++; return; }
+    }
+    if(section){
+      var item = line.replace(/^\s*\d+\s*[-.)]?\s*/, "").trim();
+      if(item) buckets[section.host].push(item);
+    }
+  });
+
+  Object.keys(buckets).forEach(function(host){
+    var pct = host === "n-owners";
+    var rows = buckets[host].map(function(t){
+      if(!pct) return { name:t };
+      var mm = t.match(/^(.*?)[\s=]*([\d\u0660-\u0669]+(?:\.\d+)?)\s*%?\s*$/);
+      return mm && mm[2] ? { name:mm[1].trim(), pct:numStr(mm[2]) } : { name:t, pct:"" };
+    });
+    if(rows.length){ setList(host, rows); filled++; }
+  });
+
+  render();
+  var h = $("imp-hint");
+  if(filled){
+    h.style.color = "var(--ok)";
+    h.textContent = "اتملى " + filled + " بند. راجعهم على الصورة، واكتب خانات التأكيد بإيدك.";
+    toast("اتملى " + filled + " بند");
+  } else {
+    h.style.color = "var(--warn)";
+    h.textContent = "معرفتش أقرا أي بند — تأكد إن كل سطر بالشكل «المسمى: القيمة».";
+  }
+}
+
+/* ================= العرض ================= */
+function render(){
+  var checks = validate();
+  var errs = 0, warns = 0;
+  checks.forEach(function(c){ if(c[0] === "err") errs++; else if(c[0] === "warn") warns++; });
+
+  var order = { err:0, warn:1, ok:2 };
+  checks.sort(function(a, b){ return order[a[0]] - order[b[0]]; });
+  var host = $("checks");
+  host.innerHTML = "";
+  checks.forEach(function(c){
+    var d = document.createElement("div");
+    d.className = "check " + c[0];
+    var mk = document.createElement("span");
+    mk.className = "mark";
+    mk.textContent = c[0] === "err" ? "✕" : c[0] === "warn" ? "!" : "✓";
+    var s = document.createElement("span");
+    s.textContent = c[1];
+    d.appendChild(mk); d.appendChild(s);
+    host.appendChild(d);
+  });
+
+  var v = $("verdict");
+  if(errs){ v.className = "status err"; v.textContent = errs + " خطأ يمنع الإرسال"; }
+  else if(warns){ v.className = "status warn"; v.textContent = warns + " تنبيه للمراجعة"; }
+  else { v.className = "status ok"; v.textContent = "سليم — جاهز للإرسال"; }
+
+  $("ack-wrap").hidden = !(warns && !errs);
+  if(errs) $("ack").checked = false;
+  var locked = errs > 0 || (warns > 0 && !$("ack").checked);
+  $("btn-copy").disabled = locked;
+  $("btn-outlook").disabled = locked;
+  $("btn-eml").disabled = locked || !IS_LOCAL;
+  $("btn-eml").title = IS_LOCAL ? "" : "التنزيل ممنوع داخل صفحة المشاركة — افتح الأداة من الملف المحلي أو من رابط GitHub Pages";
+
+  var name = mode === "tx" ? $("t-client").value.trim() : $("n-client").value.trim();
+  $("pv-to").textContent = $("to").value.trim() || "—";
+  $("pv-cc").textContent = $("cc").value.trim() || "—";
+  $("pv-subj").textContent = [subjectCode(), name].filter(Boolean).join(" — ") || "—";
+  $("pv-body").textContent = mode === "tx" ? buildTx() : buildNew();
+  renderFolders();
+
+  var approxLen = encodeURIComponent($("pv-body").textContent).length;
+  var hint;
+  if(locked) hint = "الإرسال مقفول لحد ما التدقيق يعدّي.";
+  else if(!IS_LOCAL) hint = "«افتح في أوتلوك» بيفتح مسودة جاهزة. زرار ‎.eml متقفل جوه صفحة المشاركة — افتح الأداة من رابط GitHub Pages أو من الملف المحلي.";
+  else if(approxLen > 1700) hint = "النص طويل على رابط أوتلوك — استخدم «تنزيل مسودة ‎.eml»، وافتح الملف بدبل كليك: بيفتح مسودة كاملة في أوتلوك.";
+  else hint = "«افتح في أوتلوك» بيفتح مسودة جاهزة. لو المتصفح منع الفتح، استخدم ملف ‎.eml.";
+  $("send-hint").textContent = hint;
+  save();
+}
+
+/* ================= حفظ محلي ================= */
+var IDS = ["c-client","c-code","c-seq","to","cc","n-client","n-type","n-owner","n-am","n-phone","n-egp","n-sar","n-sar2","n-total","n-sign","n-notes","t-kind","t-owner","t-client","t-phone","t-paid","t-paid2","t-profit","t-notes","fld-base"];
+var LISTS = ["n-owners","n-acts","n-mgr-eg","n-mgr-sa","fld-subs"];
+function save(){
+  try{
+    var d = { mode:mode, f:{}, l:{}, ex: !$("example-note").hidden, people:people, codes:codes };
+    IDS.forEach(function(i){ d.f[i] = $(i).value; });
+    LISTS.forEach(function(i){ d.l[i] = readList(i); });
+    localStorage.setItem("ellwaa-mail-draft", JSON.stringify(d));
+  }catch(e){}
+}
+function load(){
+  try{
+    var raw = localStorage.getItem("ellwaa-mail-draft");
+    if(!raw) return false;
+    var d = JSON.parse(raw);
+    if(d.people && d.people.length) people = d.people;
+    if(d.codes && d.codes.length) codes = d.codes;
+    applyDirectory();
+    $("dir-people").value = peopleToText(people);
+    $("dir-codes").value = codesToText(codes);
+    IDS.forEach(function(i){ if(d.f && d.f[i] !== undefined) $(i).value = d.f[i]; });
+    LISTS.forEach(function(i){ setList(i, (d.l && d.l[i]) || []); });
+    $("example-note").hidden = !d.ex;
+    setMode(d.mode || "new");
+    return true;
+  }catch(e){ return false; }
+}
+
+/* ================= بيانات ================= */
+function clearAll(){
+  IDS.forEach(function(i){ if($(i).tagName !== "SELECT") $(i).value = ""; });
+  $("n-type").selectedIndex = 0;
+  LISTS.forEach(function(i){ setList(i, []); });
+  $("cc").value = defaultCc();
+  $("fld-base").value = FLD_BASE_DEFAULT;      /* المسار ثابت — مبيتمسحش */
+  setList("fld-subs", [{ name:"مصر" }]);
+  $("example-note").hidden = true;
+  render();
+}
+function loadExample(){
+  $("fld-base").value = FLD_BASE_DEFAULT;
+  setList("fld-subs", [{ name:"مصر" }]);
+  /* بيانات نموذجية بالكامل — أي تشابه مع عميل حقيقي غير مقصود */
+  $("c-client").value = "1263"; $("c-code").value = "113"; $("c-seq").value = "1";
+  $("to").value = "person1@example.com";
+  $("cc").value = defaultCc();
+  $("n-client").value = "خالد سمير عبد الله منصور";
+  $("n-type").selectedIndex = 0;
+  $("n-owner").value = "المهندس سامي";
+  $("n-am").value = "الأستاذ كريم";
+  $("n-phone").value = "0500000000";
+  $("n-egp").value = "69500"; $("n-sar").value = "5005.87"; $("n-sar2").value = "5005.87"; $("n-total").value = "20000";
+  $("n-sign").value = "خالد سمير عبد الله منصور";
+  $("n-notes").value = "العميل محاسب ومعه دكتوراه في المحاسبة — يريد شركة نظيفة تمامًا، ولها يوزر نيم وباسورد.";
+  setList("n-owners", [{ name:"خالد سمير عبد الله منصور", pct:"99" }, { name:"زوجته — ستُرسل صورة البطاقة", pct:"1" }]);
+  setList("n-acts", [{ name:"هيتم تحديدها" }]);
+  setList("n-mgr-eg", [{ name:"خالد سمير عبد الله منصور" }]);
+  setList("n-mgr-sa", [{ name:"خالد سمير عبد الله منصور" }]);
+  $("t-kind").value = "معاملة تعقيب في المملكة";
+  $("t-owner").value = "الأستاذ طارق";
+  $("t-client").value = "يوسف نبيل فريد سليم";
+  $("t-phone").value = "01000000000";
+  $("t-paid").value = "110"; $("t-paid2").value = "120"; $("t-profit").value = "93";
+  $("example-note").hidden = false;
+  render();
+}
+function setMode(m){
+  mode = m;
+  $("tab-new").setAttribute("aria-selected", String(m === "new"));
+  $("tab-tx").setAttribute("aria-selected", String(m === "tx"));
+  $("form-new").style.display = m === "new" ? "flex" : "none";
+  $("form-tx").style.display = m === "tx" ? "flex" : "none";
+  render();
+}
+function toast(msg){
+  var t = $("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h);
+  t._h = setTimeout(function(){ t.classList.remove("show"); }, 2600);
+}
+function fallbackCopy(text, done){
+  var ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); done(); }
+  catch(e){ toast("النسخ لم ينجح — حدّد النص يدويًا"); }
+  ta.remove();
+}
+function copyText(text, msg){
+  var done = function(){ toast(msg); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done, function(){ fallbackCopy(text, done); });
+  } else fallbackCopy(text, done);
+}
+
+/* ================= الربط ================= */
+var QUIET = { "dir-people":1, "dir-codes":1, "imp-text":1 };
+document.addEventListener("input", function(e){
+  if(e.target && QUIET[e.target.id]) return;
+  render();
+});
+document.addEventListener("change", function(e){
+  if(e.target && QUIET[e.target.id]) return;
+  render();
+});
+$("tab-new").onclick = function(){ setMode("new"); };
+$("tab-tx").onclick = function(){ setMode("tx"); };
+$("btn-clear").onclick = clearAll;
+$("btn-example").onclick = loadExample;
+$("btn-cc-default").onclick = function(){ $("cc").value = defaultCc(); render(); };
+$("btn-copy-subj").onclick = function(){ copyText($("pv-subj").textContent, "تم نسخ الموضوع"); };
+$("btn-copy").onclick = function(){ if(!this.disabled) copyText($("pv-body").textContent, "تم نسخ نص الإيميل"); };
+$("btn-outlook").onclick = function(){ if(!this.disabled) openOutlook(); };
+$("btn-eml").onclick = function(){ if(!this.disabled) downloadEml(); };
+$("btn-dir-save").onclick = function(){
+  var p = parseRows($("dir-people").value, ["name","email","role"]);
+  var c = parseRows($("dir-codes").value, ["code","desc","kind"]);
+  if(p.length) people = p;
+  if(c.length) codes = c;
+  applyDirectory(); render();
+  toast("اتحفظ: " + people.length + " اسم و" + codes.length + " كود");
+};
+$("btn-dir-reset").onclick = function(){
+  people = DEFAULT_PEOPLE.slice(); codes = DEFAULT_CODES.slice();
+  $("dir-people").value = peopleToText(people);
+  $("dir-codes").value = codesToText(codes);
+  applyDirectory(); render();
+  toast("رجع للدليل الافتراضي");
+};
+
+/* ملء To تلقائيًا من اسم المسؤول */
+["n-owner","t-owner"].forEach(function(id){
+  $(id).addEventListener("change", function(){
+    var p = findPersonByName(this.value);
+    if(p && p.email && !$("to").value.trim()){ $("to").value = p.email; render(); }
+  });
+});
+
+document.addEventListener("click", function(e){
+  var b = e.target && e.target.closest ? e.target.closest("[data-add]") : null;
+  if(b){ e.preventDefault(); addRow(b.getAttribute("data-add")); render(); }
+});
+
+/* الفولدرات */
+$("btn-mkdir").onclick = makeFolders;
+$("btn-ps").onclick = function(){
+  var cmd = psCommand();
+  if(!cmd){ toast("محتاج رقم العميل وكود المعاملة الأول"); return; }
+  copyText(cmd, "اتنسخ — الزقه في PowerShell واضغط Enter");
+};
+
+/* الاستيراد */
+$("btn-import").onclick = runImport;
+
+/* الصور */
+$("btn-img-add").onclick = function(){ $("img-file").click(); };
+$("img-file").onchange = function(){
+  Array.prototype.forEach.call(this.files || [], addShot);
+  this.value = "";
+};
+$("btn-img-clear").onclick = function(){
+  shots.forEach(function(s){ URL.revokeObjectURL(s.url); });
+  shots = []; shotIdx = 0; renderShots();
+};
+$("img-big").onclick = function(){ $("img-stage").classList.toggle("zoom"); };
+document.addEventListener("paste", function(e){
+  var items = (e.clipboardData && e.clipboardData.items) || [];
+  var got = false;
+  for(var i = 0; i < items.length; i++){
+    if(items[i].kind === "file" && items[i].type.indexOf("image/") === 0){
+      addShot(items[i].getAsFile()); got = true;
+    }
+  }
+  if(got){ e.preventDefault(); toast("الصورة اتثبتت جنب الفورم"); }
+});
+["dragenter","dragover"].forEach(function(ev){
+  document.addEventListener(ev, function(e){ e.preventDefault(); document.body.classList.add("dragging"); });
+});
+["dragleave","drop"].forEach(function(ev){
+  document.addEventListener(ev, function(e){
+    if(ev === "dragleave" && e.relatedTarget) return;
+    document.body.classList.remove("dragging");
+  });
+});
+document.addEventListener("drop", function(e){
+  e.preventDefault();
+  var files = (e.dataTransfer && e.dataTransfer.files) || [];
+  Array.prototype.forEach.call(files, addShot);
+});
+
+applyDirectory();
+renderShots();
+if(!load()){
+  $("dir-people").value = peopleToText(people);
+  $("dir-codes").value = codesToText(codes);
+  loadExample();
+}
+if(!$("fld-base").value.trim()) $("fld-base").value = FLD_BASE_DEFAULT;
+if(!readList("fld-subs").length) setList("fld-subs", [{ name:"مصر" }]);
+if(!HAS_FSA){
+  $("fld-hint").textContent = "المتصفح ده مبيدعمش الكتابة على الفولدرات — استخدم «نسخ أمر PowerShell»، أو افتح الملف بـ Chrome أو Edge.";
+  $("fld-hint").style.color = "var(--warn)";
+}
+render();
+</script>
